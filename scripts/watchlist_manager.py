@@ -187,7 +187,15 @@ class WatchlistManager:
             x.get("market", ""),
             x.get("code", "")
         ))
-        self.filepath.write_text(json.dumps(self.items, ensure_ascii=False, indent=2), encoding="utf-8")
+        content = json.dumps(self.items, ensure_ascii=False, indent=2)
+        # 原子替换写入：先写入临时文件，再原子替换目标文件，彻底杜绝断电或并发写损坏
+        tmp_file = self.filepath.with_suffix(".tmp")
+        try:
+            tmp_file.write_text(content, encoding="utf-8")
+            os.replace(tmp_file, self.filepath)
+        except Exception as e:
+            # 备选回退直接写入
+            self.filepath.write_text(content, encoding="utf-8")
 
     def add(self, raw_code: str, name: Optional[str] = None, group: str = "自选",
             threshold: float = 3.0, asset_type: Optional[str] = None, enabled: bool = True) -> Dict[str, Any]:

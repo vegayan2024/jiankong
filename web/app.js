@@ -20,7 +20,9 @@ const state = {
   ws: null,
   activeDetailCode: null,
   foldedGroups: new Set(),
-  themesSummary: []
+  themesSummary: [],
+  lastRenderFingerprint: '',
+  previousPrices: new Map()
 };
 
 // DOM Elements Cache
@@ -98,6 +100,14 @@ const el = {
 
 let currentEditingCode = null;
 
+function debounce(fn, delay = 120) {
+  let timer = null;
+  return function(...args) {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn.apply(this, args), delay);
+  };
+}
+
 // ==========================================
 // Initialization
 // ==========================================
@@ -170,12 +180,16 @@ function bindEvents() {
     });
   }
 
-  // Search Input
+  // Search Input (with debounce for silky smooth typing)
   if (el.searchInput) {
+    const debouncedSearch = debounce(() => {
+      renderMatrix();
+    }, 120);
+
     el.searchInput.addEventListener('input', (e) => {
       state.searchQuery = e.target.value.trim().toLowerCase();
       el.searchClear.style.display = state.searchQuery ? 'flex' : 'none';
-      renderMatrix();
+      debouncedSearch();
     });
   }
 
@@ -623,23 +637,51 @@ async function loadGroups() {
 }
 
 // ==========================================
-// Data Refresh (Poll + Initial)
+// Data Refresh (Poll + Initial, with Overview API aggregation)
 // ==========================================
 async function refreshData(manual = false) {
   try {
-    const [qResp, aResp, annResp, nResp] = await Promise.all([
-      fetch('/api/quotes'),
-      fetch('/api/alerts'),
-      fetch('/api/announcements'),
-      fetch('/api/news')
-    ]);
+    let qData = null, aData = null, annData = null, nData = null;
 
-    const qData = await qResp.json();
-    const aData = await aResp.json();
-    const annData = await annResp.json();
-    const nData = await nResp.json();
+    try {
+      // 1. 优先调用高性能聚合接口 (节省 75% 网络往返开销)
+      const ovResp = await fetch('/api/overview');
+      if (ovResp.ok) {
+        const ov = await ovResp.json();
+        if (ov.status === 'success') {
+          qData = {
+            status: 'success',
+            data: ov.quotes || [],
+            total: ov.stats?.total || 0,
+            up_count: ov.stats?.up_count || 0,
+            down_count: ov.stats?.down_count || 0,
+            flat_count: ov.stats?.flat_count || 0,
+            updated_at: ov.updated_at
+          };
+          aData = { status: 'success', data: ov.alerts || [] };
+          annData = { status: 'success', data: ov.announcements || [] };
+          nData = { status: 'success', data: ov.news || [] };
+        }
+      }
+    } catch (e) {
+      console.warn('Overview 聚合接口异常，自动降级至独立接口:', e);
+    }
 
-    if (qData.status === 'success') {
+    // 2. 降级容错：若 overview 未成功，回退至独立并发请求
+    if (!qData) {
+      const [qResp, aResp, annResp, nResp] = await Promise.all([
+        fetch('/api/quotes'),
+        fetch('/api/alerts'),
+        fetch('/api/announcements'),
+        fetch('/api/news')
+      ]);
+      qData = await qResp.json();
+      aData = await aResp.json();
+      annData = await annResp.json();
+      nData = await nResp.json();
+    }
+
+    if (qData && qData.status === 'success') {
       state.quotes = qData.data;
       if (el.metricTotal) el.metricTotal.textContent = qData.total;
       if (el.metricUp) el.metricUp.textContent = qData.up_count;
@@ -651,26 +693,27 @@ async function refreshData(manual = false) {
       if (el.matrixTimeVal) el.matrixTimeVal.textContent = fullDt;
     }
 
-    if (aData.status === 'success') {
+    if (aData && aData.status === 'success') {
       state.alerts = aData.data;
       if (el.metricAlerts) el.metricAlerts.textContent = state.alerts.length;
       if (el.badgeAlerts) el.badgeAlerts.textContent = state.alerts.length;
       renderAlerts();
     }
 
-    if (annData.status === 'success') {
+    if (annData && annData.status === 'success') {
       state.announcements = annData.data;
       if (el.badgeAnn) el.badgeAnn.textContent = state.announcements.length;
       renderAnnouncements();
     }
 
-    if (nData.status === 'success') {
+    if (nData && nData.status === 'success') {
       state.news = nData.data;
       if (el.badgeNews) el.badgeNews.textContent = state.news.length;
       renderNews();
     }
 
-    renderMatrix();
+    // 智能局部更新（若无结构变化则执行微补丁更新）
+    smartUpdateMatrix();
 
     // If detail drawer is open, refresh its specs
     if (state.activeDetailCode) {
@@ -1170,19 +1213,188 @@ function renderSingleCard(stock) {
 }
 
 // ==========================================
-// Render Watchlist Matrix (Router)
+// Smart In-Place DOM Patching Engine
 // ==========================================
-function renderMatrix() {
+function smartUpdateMatrix() {
   const items = getFilteredAndSortedQuotes();
   if (el.filteredCount) el.filteredCount.textContent = `显示 ${items.length} 个标的`;
 
-  if (state.viewMode === 'table') {
-    renderTable(items);
-  } else if (state.viewMode === 'card') {
-    renderCards(items);
+  const foldedArr = Array.from(state.foldedGroups || []).sort().join(',');
+  const currentFingerprint = `${state.mainFilter}_${state.groupFilter}_${state.searchQuery}_${state.viewMode}_${state.sortMode}_${items.length}_${foldedArr}`;
+
+  const hasDom = (state.viewMode === 'table')
+    ? (el.tableBody && el.tableBody.children.length > 0 && !el.tableBody.querySelector('.text-dim'))
+    : (el.cardsContainer && el.cardsContainer.children.length > 0 && !el.cardsContainer.querySelector('.empty-state'));
+
+  if (hasDom && state.lastRenderFingerprint === currentFingerprint) {
+    // 局部 In-place DOM 增量补丁更新 (零重排、无卡顿闪烁、极佳手感)
+    patchDOMQuotesInPlace(items);
   } else {
-    renderGrouped(items);
+    // 结构或过滤条件改变，全量重新布局
+    state.lastRenderFingerprint = currentFingerprint;
+    if (state.viewMode === 'table') {
+      renderTable(items);
+    } else if (state.viewMode === 'card') {
+      renderCards(items);
+    } else {
+      renderGrouped(items);
+    }
+    // 同步初始化旧价格基线
+    items.forEach(stock => {
+      state.previousPrices.set(stock.code, stock.price || 0);
+    });
   }
+}
+
+function patchDOMQuotesInPlace(items) {
+  if (state.viewMode === 'table') {
+    patchTableQuotes(items);
+  } else {
+    patchCardQuotes(items);
+  }
+}
+
+function patchCardQuotes(items) {
+  const groupStats = new Map();
+
+  for (const stock of items) {
+    const code = stock.code;
+    const curP = stock.price || 0;
+    const prevP = state.previousPrices.get(code);
+    const pct = stock.pct_change || 0;
+    const isUp = pct > 0;
+    const isDown = pct < 0;
+    const pillClass = isUp ? 'pill-up' : (isDown ? 'pill-down' : 'pill-flat');
+    const sign = isUp ? '+' : '';
+    const isAlerted = Math.abs(pct) >= (stock.threshold || 3.0);
+
+    const gName = stock.group || '自选';
+    if (!groupStats.has(gName)) {
+      groupStats.set(gName, { totalPct: 0, count: 0, alerts: 0 });
+    }
+    const gs = groupStats.get(gName);
+    gs.totalPct += pct;
+    gs.count += 1;
+    if (isAlerted) gs.alerts += 1;
+
+    const card = document.querySelector(`.stock-card[data-code="${code}"]`);
+    if (!card) continue;
+
+    // 1. 异动预警样式标记
+    card.classList.toggle('is-alerted', isAlerted);
+
+    // 2. 价格更新与高频跳动闪烁动画
+    const priceEl = card.querySelector('.main-price');
+    if (priceEl) {
+      const formattedPrice = formatPrice(stock);
+      if (priceEl.textContent.trim() !== formattedPrice) {
+        priceEl.textContent = formattedPrice;
+        priceEl.style.color = isUp ? 'var(--c-up)' : (isDown ? 'var(--c-down)' : 'var(--text-main)');
+        if (prevP !== undefined && prevP > 0 && curP !== prevP) {
+          const flashClass = curP > prevP ? 'price-flash-up' : 'price-flash-down';
+          priceEl.classList.remove('price-flash-up', 'price-flash-down');
+          void priceEl.offsetWidth;
+          priceEl.classList.add(flashClass);
+          setTimeout(() => priceEl.classList.remove(flashClass), 850);
+        }
+      }
+    }
+
+    // 3. 涨跌幅胶囊更新
+    const pillEl = card.querySelector('.change-pill');
+    if (pillEl) {
+      pillEl.className = `change-pill ${pillClass}`;
+      pillEl.textContent = `${sign}${pct.toFixed(2)}%`;
+    }
+
+    // 4. 日内区间滑动条更新
+    const highP = stock.high || curP;
+    const lowP = stock.low || curP;
+    let rangePct = 50;
+    if (highP > lowP) {
+      rangePct = Math.min(100, Math.max(0, ((curP - lowP) / (highP - lowP)) * 100));
+    }
+    const rangeFill = card.querySelector('.range-bar-fill');
+    if (rangeFill) {
+      rangeFill.style.width = `${rangePct}%`;
+      rangeFill.style.backgroundColor = isUp ? 'var(--c-up)' : (isDown ? 'var(--c-down)' : 'var(--accent-blue)');
+    }
+    const rangeLabels = card.querySelectorAll('.range-labels span');
+    if (rangeLabels.length >= 2) {
+      rangeLabels[0].textContent = `低: ${formatPrice({ ...stock, price: lowP })}`;
+      rangeLabels[1].textContent = `高: ${formatPrice({ ...stock, price: highP })}`;
+    }
+
+    state.previousPrices.set(code, curP);
+  }
+
+  // 局部更新分组泳道头部统计
+  if (state.viewMode === 'grouped') {
+    for (const [gName, gs] of groupStats.entries()) {
+      const lane = document.querySelector(`.group-swimlane[data-group="${gName}"]`);
+      if (!lane) continue;
+      const avgPct = gs.count ? (gs.totalPct / gs.count) : 0;
+      const isUp = avgPct > 0;
+      const isDown = avgPct < 0;
+      const avgClass = isUp ? 'is-up' : (isDown ? 'is-down' : 'is-flat');
+      const avgSign = isUp ? '+' : '';
+      const avgEl = lane.querySelector('.group-avg-tag');
+      if (avgEl) {
+        avgEl.className = `group-avg-tag ${avgClass}`;
+        avgEl.textContent = `板块均幅: ${avgSign}${avgPct.toFixed(2)}%`;
+      }
+    }
+  }
+}
+
+function patchTableQuotes(items) {
+  for (const stock of items) {
+    const code = stock.code;
+    const curP = stock.price || 0;
+    const prevP = state.previousPrices.get(code);
+    const pct = stock.pct_change || 0;
+    const isUp = pct > 0;
+    const isDown = pct < 0;
+    const colorStyle = isUp ? 'var(--c-up)' : (isDown ? 'var(--c-down)' : 'var(--text-main)');
+    const sign = isUp ? '+' : '';
+
+    const tr = document.querySelector(`#table-body tr[data-code="${code}"]`);
+    if (!tr) continue;
+
+    const cells = tr.querySelectorAll('td');
+    if (cells.length >= 8) {
+      const priceSpan = cells[4].querySelector('span');
+      if (priceSpan) {
+        const currency = getCurrencyPrefix(stock);
+        const formattedPrice = formatPrice(stock);
+        priceSpan.textContent = `${currency}${formattedPrice}`;
+        priceSpan.style.color = colorStyle;
+        if (prevP !== undefined && prevP > 0 && curP !== prevP) {
+          const flashClass = curP > prevP ? 'price-flash-up' : 'price-flash-down';
+          priceSpan.classList.remove('price-flash-up', 'price-flash-down');
+          void priceSpan.offsetWidth;
+          priceSpan.classList.add(flashClass);
+          setTimeout(() => priceSpan.classList.remove(flashClass), 850);
+        }
+      }
+      const pctSpan = cells[5].querySelector('span');
+      if (pctSpan) {
+        pctSpan.textContent = `${sign}${pct.toFixed(2)}%`;
+        pctSpan.style.color = colorStyle;
+      }
+      if (cells[6]) cells[6].textContent = formatPrice({ ...stock, price: stock.high || curP });
+      if (cells[7]) cells[7].textContent = formatPrice({ ...stock, price: stock.low || curP });
+    }
+    state.previousPrices.set(code, curP);
+  }
+}
+
+// ==========================================
+// Render Watchlist Matrix (Router)
+// ==========================================
+function renderMatrix() {
+  state.lastRenderFingerprint = ''; // 强制重新计算与重排
+  smartUpdateMatrix();
 }
 
 // 1. Grouped Swimlane View (同类型/板块归并整排陈列)
@@ -1310,7 +1522,7 @@ function renderTable(items) {
     const formattedLow = stock.low ? formatPrice({ ...stock, price: stock.low }) : formattedPrice;
 
     return `
-      <tr class="${!stock.enabled ? 'is-disabled' : ''}" onclick="handleCardClick(event, '${stock.code}')" style="cursor: pointer;">
+      <tr class="${!stock.enabled ? 'is-disabled' : ''}" data-code="${stock.code}" onclick="handleCardClick(event, '${stock.code}')" style="cursor: pointer;">
         <td><strong class="stock-code" style="color:#fff;">${stock.code}</strong></td>
         <td><strong>${stock.name}</strong></td>
         <td><span class="${badge.className}">${badge.text}</span></td>

@@ -1925,3 +1925,24 @@ body {
   100% { box-shadow: none; }
 }
 
+/* ==========================================
+   Realtime Price Flash Micro-animations
+   ========================================== */
+.price-flash-up {
+  animation: flashGreenUp 0.85s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.price-flash-down {
+  animation: flashRedDown 0.85s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes flashGreenUp {
+  0% { background-color: rgba(22, 163, 74, 0.22); border-radius: 4px; }
+  100% { background-color: transparent; }
+}
+
+@keyframes flashRedDown {
+  0% { background-color: rgba(220, 38, 38, 0.22); border-radius: 4px; }
+  100% { background-color: transparent; }
+}
+
