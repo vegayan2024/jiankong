@@ -1,0 +1,13 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Scratch and temporary testing files
+scratch/
+*.log
+.tempmediaStorage/
+
+# Operating System Files
+.DS_Store
+Thumbs.db

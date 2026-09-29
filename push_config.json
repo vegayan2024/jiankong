@@ -1,0 +1,14 @@
+{
+  "enabled": true,
+  "debounce_seconds": 600,
+  "channels": {
+    "console": true,
+    "desktop_toast": true,
+    "feishu_webhook": "",
+    "wecom_webhook": "",
+    "dingtalk_webhook": "",
+    "bark_url": "",
+    "wxpusher_app_token": "",
+    "wxpusher_uids": []
+  }
+}
