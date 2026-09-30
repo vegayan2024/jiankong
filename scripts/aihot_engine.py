@@ -57,6 +57,11 @@ class AIHOTEngine:
         self.daily_cache: Dict[str, Any] = {}
         self.last_fetch_time: float = 0.0
         
+        self.session = requests.Session()
+        self.session.headers.update({
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        })
+        
         self.load_sources()
         self.load_watchlist_targets()
         self.load_cache()
@@ -226,73 +231,80 @@ class AIHOTEngine:
             "Referer": "https://kuaixun.eastmoney.com/"
         }
 
-        # 1. 抓取东方财富 7x24 高频行业电报 (公开接口无需鉴权，抓取最新 100 条真实资讯)
+        # 1. 抓取东方财富 7x24 高频行业电报 (官方高速 LivesList 接口)
         try:
-            em_url = "https://np-weblist.eastmoney.com/comm/web/getFastNewsList?client=web&biz=web_724&fastType=0&pageSize=100"
-            resp = requests.get(em_url, headers=headers, timeout=6)
+            em_url = "https://newsapi.eastmoney.com/kuaixun/v1/getlist_102_ajaxResult_50_1_.html"
+            resp = self.session.get(em_url, headers=headers, timeout=8)
             if resp.status_code == 200:
-                data = resp.json()
-                items = data.get("data", {}).get("fastNewsList", [])
-                for item in items:
-                    title = (item.get("title") or item.get("summary", "")[:60]).strip()
-                    content = (item.get("summary") or item.get("content", "")).strip()
-                    pub_time = item.get("showTime") or timestamp_now
-                    if not title:
-                        continue
-                    
-                    full_text = title + " " + content
-                    cat = self.classify_industry_category(full_text)
-                    if cat:
-                        s_name, s_type = self.detect_wechat_or_authority_source(full_text, "东方财富·产业快讯直通车", "industry_intel")
-                        raw_items.append({
-                            "title": title,
-                            "content": content,
-                            "time": pub_time,
-                            "category": cat,
-                            "source_name": s_name,
-                            "source_type": s_type,
-                            "url": "https://kuaixun.eastmoney.com/"
-                        })
+                m = re.search(r"var ajaxResult=(.*)", resp.text, re.S)
+                if m:
+                    data = json.loads(m.group(1).rstrip(";"))
+                    items = data.get("LivesList", [])
+                    for item in items:
+                        title = (item.get("title") or item.get("digest", "")[:60]).strip()
+                        content = (item.get("digest") or "").strip()
+                        pub_time = item.get("showtime") or timestamp_now
+                        url = item.get("url") or "https://kuaixun.eastmoney.com/"
+                        if not title and not content:
+                            continue
+                        
+                        full_text = (title + " " + content).strip()
+                        cat = self.classify_industry_category(full_text)
+                        if cat:
+                            s_name, s_type = self.detect_wechat_or_authority_source(full_text, "东方财富·产业快讯直通车", "industry_intel")
+                            raw_items.append({
+                                "title": title or content[:60],
+                                "content": content or title,
+                                "time": pub_time,
+                                "category": cat,
+                                "source_name": s_name,
+                                "source_type": s_type,
+                                "url": url
+                            })
         except Exception as e:
             logger.warning(f"东财高频快讯抓取异常: {e}")
 
-        # 2. 抓取东方财富重点行业/宏观深度要闻流 (补充权威深度研判与机构号发文)
+        # 2. 抓取东方财富重点行业/宏观深度要闻流 (官方 101 深度板块)
         try:
-            em_url_deep = "https://np-weblist.eastmoney.com/comm/web/getFastNewsList?client=web&biz=web_724&fastType=1&pageSize=60"
-            resp_deep = requests.get(em_url_deep, headers=headers, timeout=6)
+            em_url_deep = "https://newsapi.eastmoney.com/kuaixun/v1/getlist_101_ajaxResult_50_1_.html"
+            resp_deep = self.session.get(em_url_deep, headers=headers, timeout=8)
             if resp_deep.status_code == 200:
-                data_deep = resp_deep.json()
-                items_deep = data_deep.get("data", {}).get("fastNewsList", [])
-                for item in items_deep:
-                    title = (item.get("title") or item.get("summary", "")[:60]).strip()
-                    content = (item.get("summary") or item.get("content", "")).strip()
-                    pub_time = item.get("showTime") or timestamp_now
-                    if not title:
-                        continue
-                    
-                    full_text = title + " " + content
-                    cat = self.classify_industry_category(full_text)
-                    if cat:
-                        s_name, s_type = self.detect_wechat_or_authority_source(full_text, "行业权威视点·深度要闻", "industry_intel")
-                        raw_items.append({
-                            "title": title,
-                            "content": content,
-                            "time": pub_time,
-                            "category": cat,
-                            "source_name": s_name,
-                            "source_type": s_type,
-                            "url": "https://kuaixun.eastmoney.com/"
-                        })
+                m_deep = re.search(r"var ajaxResult=(.*)", resp_deep.text, re.S)
+                if m_deep:
+                    data_deep = json.loads(m_deep.group(1).rstrip(";"))
+                    items_deep = data_deep.get("LivesList", [])
+                    for item in items_deep:
+                        title = (item.get("title") or item.get("digest", "")[:60]).strip()
+                        content = (item.get("digest") or "").strip()
+                        pub_time = item.get("showtime") or timestamp_now
+                        url = item.get("url") or "https://kuaixun.eastmoney.com/"
+                        if not title and not content:
+                            continue
+                        
+                        full_text = (title + " " + content).strip()
+                        cat = self.classify_industry_category(full_text)
+                        if cat:
+                            s_name, s_type = self.detect_wechat_or_authority_source(full_text, "行业权威视点·深度要闻", "industry_intel")
+                            raw_items.append({
+                                "title": title or content[:60],
+                                "content": content or title,
+                                "time": pub_time,
+                                "category": cat,
+                                "source_name": s_name,
+                                "source_type": s_type,
+                                "url": url
+                            })
         except Exception as e:
             logger.warning(f"东财要闻流抓取异常: {e}")
 
-        # 3. 抓取新浪财经 7x24 行业快讯公开接口 (跨源交叉验证真实性)
+        # 3. 抓取新浪财经 7x24 行业快讯公开接口 (跨源交叉验证真实性，带 zhibo_id=152)
         try:
-            sina_url = "https://zhibo.sina.com.cn/api/zhibo/feed?page=1&page_size=60&type=0"
-            sina_resp = requests.get(sina_url, headers={"User-Agent": headers["User-Agent"]}, timeout=6)
+            sina_url = "https://zhibo.sina.com.cn/api/zhibo/feed?zhibo_id=152&page=1&page_size=80"
+            sina_resp = self.session.get(sina_url, timeout=8)
             if sina_resp.status_code == 200:
                 sina_data = sina_resp.json()
-                feed_items = sina_data.get("result", {}).get("data", {}).get("feed", {}).get("list", [])
+                data_obj = sina_data.get("result", {}).get("data", {})
+                feed_items = data_obj.get("feed", {}).get("list", []) if isinstance(data_obj, dict) else []
                 for f in feed_items:
                     text = f.get("rich_text") or f.get("docurl") or ""
                     clean_text = re.sub(r"<[^>]+>", "", text).strip()
