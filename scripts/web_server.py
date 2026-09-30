@@ -1066,7 +1066,32 @@ if WEB_DIR.exists():
     app.mount("/", StaticFiles(directory=str(WEB_DIR), html=True), name="web")
 
 
+def ensure_port_available(port: int = 8765):
+    """确保端口可用，若被旧进程占用则自动安全终止旧进程，避免 Errno 10048。"""
+    try:
+        import psutil
+        current_pid = os.getpid()
+        for conn in psutil.net_connections(kind="inet"):
+            if conn.laddr and conn.laddr.port == port and conn.status == "LISTEN":
+                pid = conn.pid
+                if pid and pid != current_pid:
+                    try:
+                        p = psutil.Process(pid)
+                        logger.info(f"🔄 检测到端口 {port} 已被旧进程 (PID: {pid}, {p.name()}) 占用，正在释放...")
+                        p.terminate()
+                        p.wait(timeout=2)
+                    except Exception:
+                        try:
+                            p.kill()
+                        except Exception:
+                            pass
+                    time.sleep(0.5)
+    except Exception as e:
+        logger.warning(f"检查端口占用时出现警告 (可忽略): {e}")
+
+
 def run():
+    ensure_port_available(8765)
     print("========================================================")
     print("🌐 QUANT RADAR (jiankong) 资产实时监控 Web 应用程序正在启动...")
     print("👉 本地访问地址: http://127.0.0.1:8765")
