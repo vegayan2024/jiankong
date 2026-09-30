@@ -1743,5 +1743,504 @@ window.deleteStock = async function(code, name) {
   }
 };
 
+// ========================================================
+// AIHOT 行业信息独立栏目控制器 (Industry Intelligence)
+// ========================================================
+state.industry = {
+  category: 'ALL',
+  minScore: 0,
+  searchQuery: '',
+  news: [],
+  daily: null,
+  sources: [],
+  isLoading: false,
+  hasLoaded: false
+};
+
+function initIndustryModule() {
+  const tabsContainer = document.getElementById('main-nav-tabs');
+  const viewMarket = document.getElementById('view-market');
+  const viewIndustry = document.getElementById('view-industry');
+  const btnRefreshInd = document.getElementById('btn-refresh-industry');
+  const catFilter = document.getElementById('industry-category-filter');
+  const scoreFilter = document.getElementById('industry-score-filter');
+  const searchInput = document.getElementById('industry-search-input');
+  const searchClear = document.getElementById('industry-search-clear');
+
+  // 1. 一级主栏目切换 (资产监控 vs 行业信息)
+  if (tabsContainer) {
+    tabsContainer.addEventListener('click', (e) => {
+      const btn = e.target.closest('.nav-tab-btn');
+      if (!btn) return;
+      tabsContainer.querySelectorAll('.nav-tab-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+
+      const targetTab = btn.dataset.tab;
+      if (targetTab === 'industry') {
+        if (viewMarket) viewMarket.style.display = 'none';
+        if (viewIndustry) viewIndustry.style.display = 'flex';
+        if (!state.industry.hasLoaded) {
+          loadIndustryData();
+        }
+      } else {
+        if (viewIndustry) viewIndustry.style.display = 'none';
+        if (viewMarket) viewMarket.style.display = 'flex';
+      }
+    });
+  }
+
+  // 2. 行业分类筛选按钮
+  if (catFilter) {
+    catFilter.addEventListener('click', (e) => {
+      const btn = e.target.closest('.seg-btn');
+      if (!btn) return;
+      catFilter.querySelectorAll('.seg-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      state.industry.category = btn.dataset.indCat || 'ALL';
+      renderIndustryFeed();
+    });
+  }
+
+  // 3. 最低评分筛选
+  if (scoreFilter) {
+    scoreFilter.addEventListener('click', (e) => {
+      const btn = e.target.closest('.seg-btn');
+      if (!btn) return;
+      scoreFilter.querySelectorAll('.seg-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      state.industry.minScore = parseFloat(btn.dataset.minScore || '0');
+      renderIndustryFeed();
+    });
+  }
+
+  // 4. 行业搜索输入框
+  if (searchInput) {
+    const debouncedIndSearch = debounce(() => {
+      renderIndustryFeed();
+    }, 120);
+
+    searchInput.addEventListener('input', (e) => {
+      state.industry.searchQuery = e.target.value.trim().toLowerCase();
+      if (searchClear) searchClear.style.display = state.industry.searchQuery ? 'flex' : 'none';
+      debouncedIndSearch();
+    });
+  }
+
+  if (searchClear && searchInput) {
+    searchClear.addEventListener('click', () => {
+      searchInput.value = '';
+      state.industry.searchQuery = '';
+      searchClear.style.display = 'none';
+      renderIndustryFeed();
+      searchInput.focus();
+    });
+  }
+
+  // 5. 手动重新评估按钮
+  // 5. 手动全域扫描与重新评估按钮
+  if (btnRefreshInd) {
+    btnRefreshInd.addEventListener('click', async () => {
+      btnRefreshInd.disabled = true;
+      btnRefreshInd.innerHTML = '<span>⏳</span> 全域真实扫描中...';
+      try {
+        const resp = await fetch('/api/industry/refresh', { method: 'POST' });
+        if (!resp.ok) {
+          const errText = await resp.text();
+          throw new Error(`服务暂未就绪或未重启 (HTTP ${resp.status}): ${errText.slice(0, 80)}`);
+        }
+        const res = await resp.json();
+        if (res.status === 'success') {
+          showToast(res.message || '全域权威信源扫描完成', 'success');
+          await loadIndustryData();
+        } else {
+          showToast(res.message || '全域扫描完成，暂无新变动', 'warning');
+        }
+      } catch (err) {
+        showToast('评估请求异常: ' + err.message, 'error');
+      } finally {
+        btnRefreshInd.disabled = false;
+        btnRefreshInd.innerHTML = '<span>🔄</span> 重新评估';
+      }
+    });
+  }
+}
+
+// 加载行业信息数据 (支持实时 API 与本地静态快照无缝降级)
+async function loadIndustryData() {
+  state.industry.isLoading = true;
+  const feedList = document.getElementById('industry-feed-list');
+  
+  try {
+    const fetchWithFallback = async (apiUrl, fallbackUrl) => {
+      try {
+        const resp = await fetch(apiUrl);
+        if (resp.ok) {
+          const res = await resp.json();
+          if (res && res.status === 'success') return res.data;
+          if (Array.isArray(res)) return res;
+        }
+      } catch (e) {
+        console.warn(`接口 [${apiUrl}] 暂未响应，无缝启用本地静态快照:`, e);
+      }
+      // 回退到静态快照
+      const fbResp = await fetch(fallbackUrl);
+      if (fbResp.ok) {
+        return await fbResp.json();
+      }
+      throw new Error(`无法获取数据: ${apiUrl} 与 ${fallbackUrl} 均不可达`);
+    };
+
+    const [newsData, dailyData, sourcesData] = await Promise.all([
+      fetchWithFallback('/api/industry/news?limit=100', '/industry_news.json'),
+      fetchWithFallback('/api/industry/daily', '/industry_daily.json'),
+      fetchWithFallback('/api/industry/sources', '/industry_sources.json')
+    ]);
+
+    state.industry.news = newsData || [];
+    state.industry.daily = dailyData || null;
+    state.industry.sources = sourcesData || [];
+    state.industry.hasLoaded = true;
+
+    updateIndustryHeader();
+    renderIndustryFeed();
+    renderDailyBriefs();
+    renderSourcesRadar();
+  } catch (err) {
+    console.error('加载 AIHOT 行业信息异常:', err);
+    if (feedList) {
+      feedList.innerHTML = `
+        <div class="empty-state" style="padding: 40px 20px;">
+          <span class="empty-icon">⚠️</span>
+          <p style="font-weight: 700; color: #dc2626;">情报流加载异常: ${err.message}</p>
+          <button class="btn btn-secondary" onclick="loadIndustryData()" style="margin-top: 12px; height: 30px; font-size: 11px;">🔄 点击重试</button>
+        </div>
+      `;
+    }
+    showToast('加载行业信息异常: ' + err.message, 'error');
+  } finally {
+    state.industry.isLoading = false;
+  }
+}
+
+// 更新顶部 Banner 指引与统计指标
+function updateIndustryHeader() {
+  const daily = state.industry.daily;
+  const leadSummary = document.getElementById('industry-lead-summary');
+  const lastUpdate = document.getElementById('industry-last-update');
+  const statTotal = document.getElementById('ind-stat-total');
+  const statHigh = document.getElementById('ind-stat-high');
+  const statSources = document.getElementById('ind-stat-sources');
+
+  if (daily) {
+    if (leadSummary && daily.lead_summary) {
+      leadSummary.textContent = daily.lead_summary;
+    }
+    if (lastUpdate && daily.generated_at) {
+      lastUpdate.textContent = '更新时间: ' + daily.generated_at;
+    }
+    if (statHigh && daily.high_value_count !== undefined) {
+      statHigh.textContent = daily.high_value_count;
+    }
+  }
+
+  if (statTotal) statTotal.textContent = state.industry.news.length;
+  if (statSources) statSources.textContent = state.industry.sources.length || 19;
+  updateCategoryCountBadges();
+}
+
+// 动态更新各板块分类按钮后的情报数量 (名称后只显示当日抓取到的信息数量)
+function updateCategoryCountBadges() {
+  const allNews = state.industry.news || [];
+  
+  // 统计全部
+  const elAll = document.getElementById('ind-count-ALL');
+  if (elAll) elAll.textContent = `(${allNews.length})`;
+
+  // 统计各细分板块
+  const countMap = {};
+  allNews.forEach(n => {
+    const cat = n.category;
+    if (cat) {
+      countMap[cat] = (countMap[cat] || 0) + 1;
+    }
+  });
+
+  // 更新所有按钮的数字角标
+  const filterBtns = document.querySelectorAll('#industry-category-filter .seg-btn');
+  filterBtns.forEach(btn => {
+    const cat = btn.getAttribute('data-ind-cat');
+    if (!cat || cat === 'ALL') return;
+    const badge = btn.querySelector('.cat-count-pill') || document.getElementById(`ind-count-${cat}`);
+    const count = countMap[cat] || 0;
+    if (badge) {
+      badge.textContent = `(${count})`;
+    }
+  });
+}
+
+// 渲染左侧情报卡片瀑布流
+function renderIndustryFeed() {
+  const container = document.getElementById('industry-feed-list');
+  if (!container) return;
+
+  let items = [...(state.industry.news || [])];
+
+  // 分类过滤
+  if (state.industry.category && state.industry.category !== 'ALL') {
+    items = items.filter(n => n.category === state.industry.category);
+  }
+
+  // 最低打分过滤
+  if (state.industry.minScore > 0) {
+    items = items.filter(n => (n.total_score || 0) >= state.industry.minScore);
+  }
+
+  // 搜索关键字过滤
+  if (state.industry.searchQuery) {
+    const q = state.industry.searchQuery;
+    items = items.filter(n => 
+      (n.title && n.title.toLowerCase().includes(q)) ||
+      (n.content && n.content.toLowerCase().includes(q)) ||
+      (n.category && n.category.toLowerCase().includes(q)) ||
+      (n.matched_stocks && n.matched_stocks.some(s => s.name.toLowerCase().includes(q) || s.code.toLowerCase().includes(q)))
+    );
+  }
+
+  if (!items.length) {
+    container.innerHTML = `
+      <div class="empty-state" style="padding: 48px 20px; text-align: center;">
+        <span class="empty-icon" style="font-size: 32px;">📡</span>
+        <p style="font-weight: 700; color: #1e293b; margin-top: 10px; font-size: 14px;">19 大权威信源全域监听中</p>
+        <p style="font-size: 12px; color: #64748b; margin-top: 6px; line-height: 1.6; max-width: 480px; margin-left: auto; margin-right: auto;">
+          <strong>【严格保真原则生效】</strong>：当前处于清晨时段，部委官方、行业协会及大宗现货平台暂无新增突发简报，系统坚决不凭空编造虚构数据。<br>
+          系统正以 <strong>每 3 分钟/次</strong> 周期保持全域自动巡检，您亦可点击右上角 <strong>【🔄 重新评估】</strong> 随时发起全网即时检索。
+        </p>
+      </div>
+    `;
+    return;
+  }
+
+  // ========================================================
+  // 核心置顶规则 (用户指定绝对优先级)：
+  // 在全部板块 (ALL) 视图下，确保：
+  // 1. 化工类情报永远排在第 1 位
+  // 2. 有色金属类情报永远排在第 2 位
+  // 3. 战略贵金属类情报永远排在第 3 位
+  // 4. 民用爆炸与工程 (民爆) 永远排在第 4 位
+  // 【重要】：不显示排名 1、2、3，纯粹显示板块聚焦徽章；
+  // 其余所有情报严格按热度评分 (total_score) 倒序往后依次排列！
+  // ========================================================
+  if (state.industry.category === 'ALL' && !state.industry.searchQuery) {
+    const isChem = (cat) => cat === '化工' || (cat && cat.includes('化工'));
+    const isNonferrous = (cat) => cat === '有色金属' || cat === '有色' || (cat && cat.includes('有色'));
+    const isPrecious = (cat) => cat === '战略贵金属' || cat === '贵金属' || (cat && cat.includes('贵金属'));
+    const isBlasting = (cat) => cat === '民用爆炸与工程' || cat === '民爆' || (cat && cat.includes('民爆')) || (cat && cat.includes('爆破'));
+
+    const chemItems = items.filter(n => isChem(n.category));
+    const nonferrousItems = items.filter(n => isNonferrous(n.category));
+    const preciousItems = items.filter(n => isPrecious(n.category));
+    const blastingItems = items.filter(n => isBlasting(n.category));
+
+    chemItems.sort((a, b) => (b.total_score || 0) - (a.total_score || 0));
+    nonferrousItems.sort((a, b) => (b.total_score || 0) - (a.total_score || 0));
+    preciousItems.sort((a, b) => (b.total_score || 0) - (a.total_score || 0));
+    blastingItems.sort((a, b) => (b.total_score || 0) - (a.total_score || 0));
+
+    const topFixed = [];
+    const pinnedTitles = new Set();
+
+    // 固定第 1 位：化工 (不显示排名数字)
+    if (chemItems.length) {
+      const c1 = { ...chemItems[0], is_pinned: true, pinned_badge: '📌 核心板块 · 化工' };
+      topFixed.push(c1);
+      pinnedTitles.add(c1.title);
+    }
+    // 固定第 2 位：有色 (不显示排名数字)
+    if (nonferrousItems.length) {
+      const n1 = { ...nonferrousItems[0], is_pinned: true, pinned_badge: '📌 核心板块 · 有色' };
+      topFixed.push(n1);
+      pinnedTitles.add(n1.title);
+    }
+    // 固定第 3 位：贵金属 (不显示排名数字)
+    if (preciousItems.length) {
+      const p1 = { ...preciousItems[0], is_pinned: true, pinned_badge: '📌 核心板块 · 贵金属' };
+      topFixed.push(p1);
+      pinnedTitles.add(p1.title);
+    }
+    // 固定第 4 位：民爆 (不显示排名数字)
+    if (blastingItems.length) {
+      const b1 = { ...blastingItems[0], is_pinned: true, pinned_badge: '📌 核心板块 · 民爆' };
+      topFixed.push(b1);
+      pinnedTitles.add(b1.title);
+    }
+
+    // 其余所有情报按热度打分倒序排列
+    const remaining = items.filter(n => !pinnedTitles.has(n.title));
+    remaining.sort((a, b) => (b.total_score || 0) - (a.total_score || 0));
+    items = [...topFixed, ...remaining];
+  } else {
+    items.sort((a, b) => (b.total_score || 0) - (a.total_score || 0));
+  }
+
+  container.innerHTML = items.map(n => {
+    const isHot = n.is_hot || (n.total_score >= 8.5);
+    const scoreVal = (n.total_score || 7.0).toFixed(1);
+    const scoreClass = (n.total_score >= 8.5) ? 'score-high' : 'score-medium';
+    const sourceIcon = n.source_type === 'wechat_official' ? '🟢' : 
+                      (n.source_type === 'gov_official' ? '🏛️' : 
+                      (n.source_type === 'association' ? '📑' : 
+                      (n.source_type === 'market_quote' ? '📊' : '⚡')));
+
+    // 置顶徽章 (前四位固定：化工、有色、贵金属、民爆，不显示任何排名数字)
+    const pinnedHtml = n.is_pinned && n.pinned_badge ? `
+      <span class="pinned-badge" style="background:#fef3c7; color:#b45309; border:1px solid #fde68a; font-weight:800; font-size:10.5px; padding:2px 7px; border-radius:4px; letter-spacing:0.3px;">
+        ${n.pinned_badge}
+      </span>
+    ` : '';
+
+    // 来源公号特别标签样式
+    const isWechat = n.source_type === 'wechat_official';
+    const authTagStyle = isWechat ? 'background:#ecfdf5; color:#065f46; border-color:#a7f3d0; font-weight:700;' : '';
+
+    // 关联标的胶囊
+    const matchedStocksHtml = (n.matched_stocks && n.matched_stocks.length) ? `
+      <div class="card-matched-stocks">
+        <span class="matched-label">🎯 关联自选标的:</span>
+        ${n.matched_stocks.map(s => `
+          <span class="matched-stock-pill" onclick="jumpToStockFromIndustry('${s.code}')" title="点击穿透定位到 ${s.name} 行情与公告">
+            ${s.name} <span class="stock-pill-code">${s.code}</span>
+          </span>
+        `).join('')}
+      </div>
+    ` : '';
+
+    return `
+      <div class="industry-card ${isHot ? 'is-hot' : ''} ${n.is_pinned ? 'is-top-pinned' : ''}" style="${n.is_pinned ? 'border-left: 4px solid #f59e0b; background: linear-gradient(180deg, #fffbeb 0%, #ffffff 28%);' : ''}">
+        <div class="card-top-meta">
+          <div class="meta-tags-left">
+            ${pinnedHtml}
+            <span class="cat-pill">${n.category || '综合'}</span>
+            <span class="auth-tag" style="${authTagStyle}">${sourceIcon} ${n.source_name || '权威信源'}</span>
+            <span class="score-badge ${scoreClass}">★ AI评分 ${scoreVal}</span>
+          </div>
+          <span class="card-time">${n.time || ''}</span>
+        </div>
+
+        <div class="card-title-text">${n.title}</div>
+        <div class="card-content-text">${n.content || ''}</div>
+
+        ${n.impact_logic ? `
+          <div class="card-impact-box">
+            <span class="impact-label">💡 产业催化与逻辑:</span>
+            <span>${n.impact_logic}</span>
+          </div>
+        ` : ''}
+
+        ${matchedStocksHtml}
+      </div>
+    `;
+  }).join('');
+}
+
+// 渲染今日早晚报卡片
+function renderDailyBriefs() {
+  const container = document.getElementById('daily-brief-list');
+  const dateEl = document.getElementById('daily-brief-date');
+  const daily = state.industry.daily;
+  if (!container || !daily) return;
+
+  if (dateEl) dateEl.textContent = daily.date || '';
+
+  const briefs = daily.briefs || [];
+  if (!briefs.length) {
+    container.innerHTML = `
+      <div class="empty-state" style="padding: 20px 0;">
+        <span class="empty-icon">📋</span>
+        <p>今日日报正在生成中...</p>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = briefs.map(b => `
+    <div class="daily-brief-item" style="${b.is_core_pinned ? 'background:#fffdfa; padding:6px 8px; border-radius:6px; border:1px solid #fef3c7; margin-bottom:6px;' : ''}">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">
+        <div style="display:flex; align-items:center; gap:4px;">
+          ${b.is_core_pinned ? '<span style="font-size:9.5px; font-weight:800; background:#fef3c7; color:#b45309; padding:1px 4px; border-radius:3px; border:1px solid #fde68a;">📌 核心</span>' : ''}
+          <span class="cat-pill" style="font-size:10px; padding:1px 5px;">${b.category}</span>
+        </div>
+        <span class="score-badge score-high" style="font-size:10px; padding:1px 6px;">评级 ${b.score}</span>
+      </div>
+      <div class="daily-headline">${b.headline}</div>
+      <div class="daily-summary">${b.summary}</div>
+      <div style="font-size:10.5px; color:#1e40af; background:#eff6ff; padding:3px 6px; border-radius:3px;">
+        <strong>受影响核心链条:</strong> ${b.key_stocks}
+      </div>
+    </div>
+  `).join('');
+}
+
+// 渲染已接入权威与快速信源清单
+function renderSourcesRadar() {
+  const container = document.getElementById('sources-radar-list');
+  const countBadge = document.getElementById('sources-count-badge');
+  const sources = state.industry.sources || [];
+  if (!container) return;
+
+  if (countBadge) countBadge.textContent = `${sources.length} 个`;
+
+  container.innerHTML = sources.map(s => {
+    const isWechat = s.source_type === 'wechat_official';
+    const typeLabel = isWechat ? '🟢 官方公号' :
+                     (s.source_type === 'gov_official' ? '🏛️ 部委官方' : 
+                     (s.source_type === 'association' ? '📑 行业协会' : 
+                     (s.source_type === 'market_quote' ? '📊 大宗报价' : '⚡ 产业智库')));
+    const badgeStyle = isWechat ? 'background:#ecfdf5; color:#065f46; border-color:#a7f3d0; font-weight:700;' : '';
+
+    return `
+      <div class="source-item-row" title="${s.description}">
+        <div class="source-name-left">
+          <span>${s.name}</span>
+          <span style="font-size:9.5px; color:var(--text-dim);">(${s.sub_category})</span>
+        </div>
+        <span class="source-type-badge" style="${badgeStyle}">${typeLabel}</span>
+      </div>
+    `;
+  }).join('');
+}
+
+// 穿透联动：从行业信息直穿资产实时监控定位标的
+window.jumpToStockFromIndustry = function(code) {
+  // 1. 切换 Tab 回到资产实时监控
+  const btnMarket = document.getElementById('tab-btn-market');
+  if (btnMarket) btnMarket.click();
+
+  // 2. 将全局搜索设置为该股票代码或名称，或者定位泳道行
+  setTimeout(() => {
+    // 寻找卡片或泳道
+    const cardEl = document.querySelector(`.stock-card[data-code="${code}"]`);
+    if (cardEl) {
+      cardEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      cardEl.classList.add('highlight-pulse');
+      setTimeout(() => cardEl.classList.remove('highlight-pulse'), 3000);
+      showToast(`已穿透定位至标的 [${code}]`, 'success');
+      return;
+    }
+
+    // 若未直接可见，通过搜索框精准聚焦
+    if (el.searchInput) {
+      el.searchInput.value = code;
+      state.searchQuery = code.toLowerCase();
+      if (el.searchClear) el.searchClear.style.display = 'flex';
+      renderMatrix();
+      showToast(`已为您筛选标的 [${code}] 行情`, 'info');
+    }
+  }, 100);
+};
+
 // Start Application
-document.addEventListener('DOMContentLoaded', initApp);
+document.addEventListener('DOMContentLoaded', () => {
+  initApp();
+  initIndustryModule();
+});
+

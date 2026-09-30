@@ -1,0 +1,252 @@
+[
+  {
+    "id": "wx_chinachem",
+    "name": "中国化工报 (官方微信公众号)",
+    "category": "化工",
+    "sub_category": "官方微信矩阵: ccinwx",
+    "source_type": "wechat_official",
+    "is_free": true,
+    "feed_url": "https://www.ccin.com.cn/",
+    "description": "国务院国资委主管、中国石油和化学工业联合会主办。每日推送石化、氟化工、精细化工与重点标的产业动态、装置负荷及政策解读。"
+  },
+  {
+    "id": "wx_cnmn",
+    "name": "中国有色金属报 (官方微信公众号)",
+    "category": "有色金属",
+    "sub_category": "官方微信矩阵: cnmnyouse",
+    "source_type": "wechat_official",
+    "is_free": true,
+    "feed_url": "http://www.cnmn.com.cn/",
+    "description": "中国有色金属工业协会主管官方媒体。覆盖铜、铝、铅、锌、钨、锡、稀土等大宗与稀贵金属现货、期货、冶炼厂开工及行业头条。"
+  },
+  {
+    "id": "wx_gold",
+    "name": "中国黄金报 (官方微信公众号)",
+    "category": "战略贵金属",
+    "sub_category": "官方微信矩阵: zg-hjb",
+    "source_type": "wechat_official",
+    "is_free": true,
+    "feed_url": "https://www.gold.org.cn/",
+    "description": "中国黄金行业权威官方媒体。追踪全球央行购金、黄金开采冶炼、金价与白银大宗行情、贵金属采选上市企业深度报道。"
+  },
+  {
+    "id": "wx_cseb",
+    "name": "中国爆破行业协会 (官方微信公众号)",
+    "category": "民用爆炸与工程",
+    "sub_category": "官方微信认证: 中国爆破行业协会",
+    "source_type": "wechat_official",
+    "is_free": true,
+    "feed_url": "http://www.cseb.org.cn/",
+    "description": "全国民爆与爆破工程权威社会团体。发布数码电子雷管产销跟踪、民爆一体化服务、国家绿色矿山爆破工程招投标与安全标准。"
+  },
+  {
+    "id": "wx_miit_gov",
+    "name": "工信微报 (工信部官方微信)",
+    "category": "民用爆炸与工程",
+    "sub_category": "官方微信矩阵: miitgovcn",
+    "source_type": "wechat_official",
+    "is_free": true,
+    "feed_url": "https://www.miit.gov.cn/",
+    "description": "工业和信息化部官方政务新媒体。民爆行业顶层规划、产业结构调整指导目录、算力芯片与原材料产业国家政策第一发布源。"
+  },
+  {
+    "id": "wx_smm",
+    "name": "SMM有色大宗 (官方微信公众号)",
+    "category": "有色金属",
+    "sub_category": "官方微信矩阵: smm1999",
+    "source_type": "wechat_official",
+    "is_free": true,
+    "feed_url": "https://news.smm.cn/",
+    "description": "上海有色网旗下官方新媒体。每日高频发布铜、铝、稀土、锂、镍、钨等现货升贴水、保税区库存变动与海内外冶炼厂异动。"
+  },
+  {
+    "id": "wx_baiinfo",
+    "name": "百川盈孚大宗市场 (官方微信公众号)",
+    "category": "化工",
+    "sub_category": "官方微信矩阵: baiinfo_com",
+    "source_type": "wechat_official",
+    "is_free": true,
+    "feed_url": "http://www.baiinfo.com/",
+    "description": "化工大宗商品权威资讯。跟踪制冷剂(R32/R125)、聚合MDI、乙二醇、钛白粉、聚酯等大厂调价函与装置检修计划。"
+  },
+  {
+    "id": "wx_trendforce",
+    "name": "TrendForce 集邦咨询 (官方微信公众号)",
+    "category": "算力光模块与通信",
+    "sub_category": "官方微信矩阵: TrendForce",
+    "source_type": "wechat_official",
+    "is_free": true,
+    "feed_url": "https://www.trendforce.cn/",
+    "description": "全球前沿半导体智库。定期发布AI服务器BOM成本、800G/1.6T光模块出货量、先进制程代工产能利用率等独家产业研判。"
+  },
+  {
+    "id": "wx_ggii_robot",
+    "name": "高工机器人 (官方微信公众号)",
+    "category": "人形机器人",
+    "sub_category": "官方微信矩阵: GGII_Robot",
+    "source_type": "wechat_official",
+    "is_free": true,
+    "feed_url": "https://www.gg-robot.com/",
+    "description": "具身智能与工业机器人权威产业观察。跟踪人形机器人本体定型、行星滚柱丝杠、谐波减速器、力矩传感器核心供应链订单排产。"
+  },
+  {
+    "id": "src_rare_earth_assoc",
+    "name": "中国稀土行业协会",
+    "category": "有色金属",
+    "sub_category": "官方现货指导价",
+    "source_type": "association",
+    "is_free": true,
+    "feed_url": "http://www.acqre.org.cn/",
+    "description": "氧化镨钕、氧化镝、氧化铽等关键稀土原料官方每日综合指导价格与开工率评述"
+  },
+  {
+    "id": "src_cpcif_chem",
+    "name": "中国石油和化学工业联合会",
+    "category": "化工",
+    "sub_category": "开工与供需运行",
+    "source_type": "association",
+    "is_free": true,
+    "feed_url": "http://www.cpcia.org.cn/",
+    "description": "煤化工、基础化工、氟硅精细化学品产能预警与全国主要装置负荷报告"
+  },
+  {
+    "id": "src_blast_civil",
+    "name": "中国爆破行业网",
+    "category": "民用爆炸与工程",
+    "sub_category": "民爆产销与中标",
+    "source_type": "association",
+    "is_free": true,
+    "feed_url": "http://www.cseb.org.cn/",
+    "description": "数码电子雷管产销月报、大型露天煤矿与水利工程爆破一体化服务招投标动态"
+  },
+  {
+    "id": "src_cls_hot",
+    "name": "财联社·电报·深度产业",
+    "category": "全行业综合",
+    "sub_category": "极速电报",
+    "source_type": "financial_wire",
+    "is_free": true,
+    "feed_url": "https://www.cls.cn/telegraph",
+    "description": "7x24小时全行业突发事件、部委吹风会、重点标的产业链出货变动极速快讯"
+  },
+  {
+    "id": "src_kcb_tele",
+    "name": "科创板日报 (TMT/硬科技)",
+    "category": "自主算力芯片",
+    "sub_category": "芯片与算力跟踪",
+    "source_type": "vertical_media",
+    "is_free": true,
+    "feed_url": "https://www.chinastarmarket.cn/",
+    "description": "先进封装、晶圆先进制程、光刻设备、AI算力集群供应链高频一线独家"
+  },
+  {
+    "id": "src_smm_metals",
+    "name": "上海有色网 (SMM) 公开快讯",
+    "category": "有色金属",
+    "sub_category": "大宗金属调价",
+    "source_type": "market_quote",
+    "is_free": true,
+    "feed_url": "https://news.smm.cn/",
+    "description": "电解铜、白银、金、锡、钨精矿每日现货升贴水与冶炼厂集中检修通报"
+  },
+  {
+    "id": "src_baiinfo_chem",
+    "name": "百川盈孚 (Baiinfo) 公开早评",
+    "category": "化工",
+    "sub_category": "化工价格与开工率",
+    "source_type": "market_quote",
+    "is_free": true,
+    "feed_url": "http://www.baiinfo.com/",
+    "description": "制冷剂(R32/R125)、MDI、聚合MDI、乙二醇、钛白粉各主流大厂调价函与开工统计"
+  },
+  {
+    "id": "src_battery_innov",
+    "name": "中国汽车动力电池产业创新联盟",
+    "category": "固态电池与新材料",
+    "sub_category": "月度装车与排产",
+    "source_type": "association",
+    "is_free": true,
+    "feed_url": "http://www.cabr.ac.cn/",
+    "description": "磷酸铁锂、三元、半固态/全固态电池产量、装车量及材料体系官方月报"
+  },
+  {
+    "id": "src_caac_air",
+    "name": "中国民用航空局 (CAAC) 适航司",
+    "category": "低空经济",
+    "sub_category": "适航与型号审定",
+    "source_type": "gov_official",
+    "is_free": true,
+    "feed_url": "http://www.caac.gov.cn/HD/ZWXXGK/",
+    "description": "eVTOL、通用航空无人飞行器 TC/PC 适航审定进度、低空空域空管规划"
+  },
+  {
+    "id": "src_cnsa_space",
+    "name": "国家航天局 (CNSA)",
+    "category": "商业航天与卫星",
+    "sub_category": "卫星频轨与发射",
+    "source_type": "gov_official",
+    "is_free": true,
+    "feed_url": "https://www.cnsa.gov.cn/",
+    "description": "空间基础设施、千帆星座/GW巨型卫星互联网工程、商业航天发射公告"
+  },
+  {
+    "id": "src_cde_pharma",
+    "name": "国家药监局药审中心 (CDE)",
+    "category": "创新药出海",
+    "sub_category": "新药审评与IND",
+    "source_type": "gov_official",
+    "is_free": true,
+    "feed_url": "https://www.cde.org.cn/main/xxgk/postmarketlistpage",
+    "description": "创新药 IND/NDA 临床受理审评、突破性疗法认定及出海许可备案公示"
+  },
+  {
+    "id": "src_ggii_battery",
+    "name": "高工锂电 (GGII)",
+    "category": "固态电池与新材料",
+    "sub_category": "固态电池产线",
+    "source_type": "industry_intel",
+    "is_free": true,
+    "feed_url": "https://www.gg-lb.com/",
+    "description": "全固态聚合物/氧化物/硫化物电解质中试线进度、头部电池厂采购长协动态"
+  },
+  {
+    "id": "src_garnoc_lowalt",
+    "name": "通航资源网 (GARNOC)",
+    "category": "低空经济",
+    "sub_category": "通用航空与低空基建",
+    "source_type": "vertical_media",
+    "is_free": true,
+    "feed_url": "http://www.garnoc.com/",
+    "description": "各省市低空飞行服务保障体系、起降场规划投资、通用航空运营商机队采购"
+  },
+  {
+    "id": "src_pharma_cube",
+    "name": "医药魔方公开资讯",
+    "category": "创新药出海",
+    "sub_category": "License-out与临床",
+    "source_type": "vertical_media",
+    "is_free": true,
+    "feed_url": "https://www.pharmcube.com/",
+    "description": "国产创新药对外授权 (BD Deal) 首付款/里程碑金披露、海外临床III期数据读出"
+  },
+  {
+    "id": "src_paper_pack",
+    "name": "中国造纸协会",
+    "category": "造纸与轻工",
+    "sub_category": "纸浆与包装箱板",
+    "source_type": "association",
+    "is_free": true,
+    "feed_url": "http://www.chinapaper.org.cn/",
+    "description": "针叶浆/阔叶浆进口报价、箱板瓦楞纸全国主流纸企停机检修与涨价函"
+  },
+  {
+    "id": "src_agri_food",
+    "name": "中国农产品加工网",
+    "category": "农产品加工与生物",
+    "sub_category": "白糖与生物发酵",
+    "source_type": "industry_intel",
+    "is_free": true,
+    "feed_url": "http://www.app.org.cn/",
+    "description": "配额外食糖进口利润、国内外糖市供需平衡表、酵母与氨基酸深加工出口走势"
+  }
+]

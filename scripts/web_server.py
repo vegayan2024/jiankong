@@ -55,6 +55,7 @@ sys.path.insert(0, str(JIANKONG_DIR / "scripts"))
 
 from scripts.watchlist_manager import WatchlistManager, normalize_stock_code, fetch_online_stock_name_and_price, SPECIAL_INDICES
 from scripts.cninfo_client import cninfo_client
+from scripts.aihot_engine import aihot_engine
 
 # ==============================================================================
 # 高性能全局 HTTP 连接池与并发执行器 (大幅降低 TCP 握手开销与 I/O 阻塞)
@@ -426,6 +427,10 @@ async def background_polling_loop():
             if loop_count % 10 == 0:
                 await asyncio.to_thread(fetch_cninfo_announcements_sync)
 
+            # AIHOT 行业情报与日报每 3 分钟 (60 次循环) 全域增量扫描一次
+            if loop_count > 0 and loop_count % 60 == 0:
+                asyncio.create_task(asyncio.to_thread(aihot_engine.refresh))
+
             now_dt = datetime.now()
             await ws_manager.broadcast({
                 "type": "TICK",
@@ -454,6 +459,8 @@ async def lifespan(app_inst: FastAPI):
     await asyncio.to_thread(fetch_batch_quotes)
     await asyncio.to_thread(fetch_flash_news_sync)
     await asyncio.to_thread(fetch_cninfo_announcements_sync)
+    # 异步预热 AIHOT 行业情报引擎 (不阻塞主服务启动)
+    asyncio.create_task(asyncio.to_thread(aihot_engine.refresh))
     polling_task = asyncio.create_task(background_polling_loop())
     yield
     polling_task.cancel()
@@ -606,6 +613,58 @@ async def refresh_news_endpoint():
         "hit_count": hit_c,
         "data": recent_news
     }
+
+
+# ==============================================================================
+# AIHOT 行业信息与情报聚合接口 (融合 KKKKhazix/AIHOT 体系)
+# ==============================================================================
+@app.get("/api/industry/news")
+async def get_industry_news(category: Optional[str] = None, min_score: float = 0.0, limit: int = 60):
+    items = await asyncio.to_thread(aihot_engine.get_news, category, min_score)
+    return {
+        "status": "success",
+        "total": len(items),
+        "category": category or "ALL",
+        "min_score": min_score,
+        "data": items[:limit]
+    }
+
+
+@app.get("/api/industry/daily")
+async def get_industry_daily():
+    daily = await asyncio.to_thread(aihot_engine.get_daily)
+    return {
+        "status": "success",
+        "data": daily
+    }
+
+
+@app.get("/api/industry/sources")
+async def get_industry_sources():
+    sources = aihot_engine.get_sources_meta()
+    return {
+        "status": "success",
+        "total": len(sources),
+        "data": sources
+    }
+
+
+@app.post("/api/industry/refresh")
+async def refresh_industry_intel():
+    try:
+        result = await asyncio.to_thread(aihot_engine.refresh)
+        return {
+            "status": result.get("status", "success"),
+            "message": result.get("message", "全域权威信源扫描完成"),
+            "data": result
+        }
+    except Exception as e:
+        logger.error(f"行业情报刷新异常: {e}", exc_info=True)
+        return {
+            "status": "error",
+            "message": f"全域扫描执行失败: {str(e)}",
+            "data": None
+        }
 
 
 # ==============================================================================
