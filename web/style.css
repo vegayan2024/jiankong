@@ -210,6 +210,93 @@ body {
   letter-spacing: 0.3px;
 }
 
+/* 宏观与风格罗盘指示徽章 (对齐指数观澜量化框架) */
+.macro-compass-pill {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.macro-compass-pill:hover {
+  background: #dcfce7;
+  border-color: #86efac;
+}
+
+.compass-icon {
+  font-size: 13px;
+}
+
+.compass-text {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #166534;
+  letter-spacing: 0.2px;
+}
+
+/* 罗盘悬浮浮层详情 */
+.compass-tooltip {
+  display: none;
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  width: 290px;
+  background: #ffffff;
+  border: 1px solid var(--border-medium);
+  border-radius: 8px;
+  padding: 12px 14px;
+  box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.15), 0 8px 10px -6px rgba(15, 23, 42, 0.1);
+  z-index: 1000;
+  pointer-events: none;
+}
+
+.macro-compass-pill:hover .compass-tooltip {
+  display: block;
+}
+
+.compass-tip-header {
+  font-size: 12px;
+  font-weight: 700;
+  color: #0f172a;
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: 6px;
+  margin-bottom: 8px;
+}
+
+.compass-tip-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11.5px;
+  margin-bottom: 4px;
+}
+
+.compass-tip-row .k {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.compass-tip-row .v {
+  color: #0f172a;
+  font-weight: 600;
+}
+
+.compass-tip-sub {
+  font-size: 11px;
+  color: #2563eb;
+  background: #eff6ff;
+  padding: 4px 8px;
+  border-radius: 4px;
+  margin: 4px 0 8px 0;
+  line-height: 1.4;
+}
+
 /* Nav metrics pills */
 .nav-metrics {
   display: flex;

@@ -1680,6 +1680,20 @@
     "asset_type": "stock"
   },
   {
+    "code": "688249.SH",
+    "symbol": "688249",
+    "market": "SH",
+    "name": "晶合集成",
+    "group": "自选",
+    "asset_type": "stock",
+    "enabled": true,
+    "alert_threshold_pct": 3.5,
+    "monitor_announcement": true,
+    "monitor_intraday": true,
+    "monitor_news": true,
+    "added_at": "2026-10-09 09:45:56"
+  },
+  {
     "code": "688295.SH",
     "symbol": "688295",
     "market": "SH",

@@ -30,6 +30,12 @@ const el = {
   updateTimer: document.getElementById('update-timer'),
   marketFullDatetime: document.getElementById('market-full-datetime'),
   matrixTimeVal: document.getElementById('matrix-time-val'),
+  compassSummaryText: document.getElementById('compass-summary-text'),
+  tipSentiment: document.getElementById('tip-sentiment'),
+  tipAdvice: document.getElementById('tip-advice'),
+  tipMarketCap: document.getElementById('tip-market-cap'),
+  tipGrowthValue: document.getElementById('tip-growth-value'),
+  tipIntradayStatus: document.getElementById('tip-intraday-status'),
   metricTotal: document.getElementById('metric-total'),
   metricUp: document.getElementById('metric-up'),
   metricDown: document.getElementById('metric-down'),
@@ -712,6 +718,17 @@ async function refreshData(manual = false) {
       renderNews();
     }
 
+    // 获取并渲染宏观与风格罗盘数据
+    try {
+      const compResp = await fetch('/api/macro/compass');
+      if (compResp.ok) {
+        const compData = await compResp.json();
+        if (compData.status === 'success') {
+          renderMacroCompass(compData.data);
+        }
+      }
+    } catch (e) {}
+
     // 智能局部更新（若无结构变化则执行微补丁更新）
     smartUpdateMatrix();
 
@@ -724,6 +741,32 @@ async function refreshData(manual = false) {
     }
   } catch (err) {
     console.warn('数据拉取异常:', err);
+  }
+}
+
+function renderMacroCompass(data) {
+  if (!data) return;
+  if (data.pill_text && el.compassSummaryText) {
+    el.compassSummaryText.textContent = data.pill_text;
+  }
+  const sent = data.sentiment || {};
+  const mc = data.market_cap_style || {};
+  const gv = data.growth_value_style || {};
+  
+  if (el.tipSentiment) {
+    el.tipSentiment.textContent = `${sent.zone || '低温区'} (P值 ${sent.p_value || 16.6})`;
+  }
+  if (el.tipAdvice) {
+    el.tipAdvice.textContent = sent.advice || '建议超配以A500为代表的权益资产';
+  }
+  if (el.tipMarketCap) {
+    el.tipMarketCap.textContent = `${mc.bias || '偏向小盘'} (${mc.benchmark || '中证2000/1000占优'})`;
+  }
+  if (el.tipGrowthValue) {
+    el.tipGrowthValue.textContent = `${gv.bias || '偏向价值'} (${gv.benchmark || '红利高股息防御'})`;
+  }
+  if (el.tipIntradayStatus) {
+    el.tipIntradayStatus.textContent = mc.intraday_status || '风格相对动量稳定';
   }
 }
 
@@ -744,6 +787,9 @@ function setupWebSocket() {
           if (el.updateTimer) el.updateTimer.textContent = wsDt;
           if (el.marketFullDatetime) el.marketFullDatetime.textContent = wsDt;
           if (el.matrixTimeVal) el.matrixTimeVal.textContent = wsDt;
+          if (msg.macro_compass) {
+            renderMacroCompass(msg.macro_compass);
+          }
         }
       } catch (e) {}
     };

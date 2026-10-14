@@ -56,6 +56,7 @@ sys.path.insert(0, str(JIANKONG_DIR / "scripts"))
 from scripts.watchlist_manager import WatchlistManager, normalize_stock_code, fetch_online_stock_name_and_price, SPECIAL_INDICES
 from scripts.cninfo_client import cninfo_client
 from scripts.aihot_engine import aihot_engine
+from scripts.macro_compass import macro_compass
 
 # ==============================================================================
 # 高性能全局 HTTP 连接池与并发执行器 (大幅降低 TCP 握手开销与 I/O 阻塞)
@@ -432,6 +433,8 @@ async def background_polling_loop():
                 asyncio.create_task(asyncio.to_thread(aihot_engine.refresh))
 
             now_dt = datetime.now()
+            # 联动宏观与风格罗盘动量微调
+            macro_compass.update_from_quotes(cached_quotes)
             await ws_manager.broadcast({
                 "type": "TICK",
                 "timestamp": now_dt.strftime("%H:%M:%S"),
@@ -440,7 +443,8 @@ async def background_polling_loop():
                 "quotes_count": len(cached_quotes),
                 "alerts_count": len(recent_alerts),
                 "news_count": len(recent_news),
-                "news_hit_count": sum(1 for n in recent_news if n.get("is_hit"))
+                "news_hit_count": sum(1 for n in recent_news if n.get("is_hit")),
+                "macro_compass": macro_compass.get_full_status()
             })
 
             loop_count += 1
@@ -975,6 +979,12 @@ async def get_themes_summary():
         t_copy["realtime_avg_pct"] = round(sum(valid_pcts) / len(valid_pcts), 2) if valid_pcts else 0.0
         result.append(t_copy)
     return {"status": "success", "total": len(result), "data": result}
+
+
+@app.get("/api/macro/compass")
+async def get_macro_compass():
+    """获取宏观与风格罗盘数据 (南方基金「指数观澜」量化框架与本地模型对齐)"""
+    return {"status": "success", "data": macro_compass.get_full_status()}
 
 
 @app.get("/api/watchlist/groups")
