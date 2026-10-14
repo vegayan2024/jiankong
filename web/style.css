@@ -2033,3 +2033,61 @@ body {
   100% { background-color: transparent; }
 }
 
+/* ========================================================
+   一级主栏目切换与容器面板
+   ======================================================== */
+.main-nav-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: #f1f5f9;
+  padding: 3px;
+  border-radius: 8px;
+  border: 1px solid var(--border-medium);
+  margin-left: 14px;
+}
+
+.nav-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.nav-tab-btn:hover {
+  color: var(--text-main);
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.nav-tab-btn.active {
+  background: #ffffff;
+  color: var(--accent-blue);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+}
+
+.tab-badge-aihot {
+  font-size: 9px;
+  font-weight: 800;
+  padding: 1px 5px;
+  background: linear-gradient(135deg, #2563eb, #7c3aed);
+  color: #ffffff;
+  border-radius: 10px;
+  letter-spacing: 0.5px;
+}
+
+.view-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  height: calc(100vh - 56px);
+  overflow: hidden;
+}
+
