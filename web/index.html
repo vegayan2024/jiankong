@@ -115,16 +115,25 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 18px;
+  padding: 0 16px;
   z-index: 30;
   flex-shrink: 0;
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .nav-left {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+@media (max-width: 1440px) {
+  .brand-sub {
+    display: none;
+  }
 }
 
 .brand-logo {
@@ -2023,21 +2032,26 @@ body {
    AIHOT 行业信息栏目专用高质感金融终端样式
    ======================================================== */
 .main-nav-tabs {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
   background: #f1f5f9;
   padding: 3px;
   border-radius: 8px;
   border: 1px solid var(--border-medium);
-  margin-left: 14px;
+  height: 36px;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  margin-left: 8px;
 }
 
 .nav-tab-btn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 14px;
+  height: 28px;
+  line-height: 28px;
+  padding: 0 12px;
   font-size: 12px;
   font-weight: 700;
   border: none;
@@ -2045,12 +2059,14 @@ body {
   color: var(--text-secondary);
   border-radius: 6px;
   cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
   transition: all 0.15s ease;
 }
 
 .nav-tab-btn:hover {
   color: var(--text-main);
-  background: rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.6);
 }
 
 .nav-tab-btn.active {
@@ -2441,12 +2457,23 @@ body {
           <div class="logo-badge">⚡</div>
           <div class="brand-text">
             <div class="brand-main">QUANT RADAR <span class="edition-tag">JIANKONG</span></div>
-            <div class="brand-sub">全资产即时监控终端 (基准指数 · 热点ETF · 题材龙头 · 周期基本盘)</div>
+            <div class="brand-sub">全资产即时监控终端</div>
           </div>
         </div>
+
+        <!-- 一级主栏目切换 Tab (紧随品牌Logo，规范主导航排布) -->
+        <div class="main-nav-tabs" id="main-nav-tabs">
+          <button class="nav-tab-btn active" data-tab="market" id="tab-btn-market" title="A股/港股/指数/ETF 全资产行情与情报监控">
+            <span class="tab-icon">📊</span> 资产实时监控
+          </button>
+          <button class="nav-tab-btn" data-tab="industry" id="tab-btn-industry" title="AIHOT 驱动的行业权威情报与每日精选早晚报">
+            <span class="tab-icon">🌐</span> 行业信息 <span class="tab-badge-aihot">AIHOT</span>
+          </button>
+        </div>
+
         <div class="market-datetime-pill" title="全市场实时行情基准日期与时间">
           <span class="pulse-dot"></span>
-          <span class="dt-label">行情基准时间</span>
+          <span class="dt-label">行情基准</span>
           <span id="market-full-datetime" class="dt-val">--:--:--</span>
           <span id="update-timer" style="display:none;">--:--:--</span>
         </div>
@@ -2462,16 +2489,6 @@ body {
             <div class="compass-tip-row"><span class="k">价值成长风格:</span><span id="tip-growth-value" class="v">偏向价值 (红利高股息防御)</span></div>
             <div class="compass-tip-sub" id="tip-intraday-status">盘中小盘强于大盘</div>
           </div>
-        </div>
-
-        <!-- 一级主栏目切换 Tab -->
-        <div class="main-nav-tabs" id="main-nav-tabs">
-          <button class="nav-tab-btn active" data-tab="market" id="tab-btn-market" title="A股/港股/指数/ETF 全资产行情与情报监控">
-            <span class="tab-icon">📊</span> 资产实时监控
-          </button>
-          <button class="nav-tab-btn" data-tab="industry" id="tab-btn-industry" title="AIHOT 驱动的行业权威情报与每日精选早晚报">
-            <span class="tab-icon">🌐</span> 行业信息 <span class="tab-badge-aihot">AIHOT</span>
-          </button>
         </div>
       </div>
 
@@ -2962,7 +2979,7 @@ body {
             <div class="chart-hud-card hud-pb">
               <div class="hud-title-row">
                 <span class="hud-label">市净率 PB (MRQ)</span>
-                <span id="hud-pb-pct" class="hud-badge" style="background:#fef3c7; color:#b45309;">分位 -%</span>
+                <span id="hud-pb-pct" class="hud-badge" style="background:#ecfdf5; color:#047857;">分位 -%</span>
               </div>
               <div class="hud-val" id="hud-pb-val">-</div>
               <div class="hud-sub">
@@ -2974,7 +2991,7 @@ body {
             <div class="chart-hud-card hud-pe">
               <div class="hud-title-row">
                 <span class="hud-label">市盈率 PE (TTM)</span>
-                <span id="hud-pe-pct" class="hud-badge" style="background:#e0f2fe; color:#0369a1;">分位 -%</span>
+                <span id="hud-pe-pct" class="hud-badge" style="background:#fef2f2; color:#b91c1c;">分位 -%</span>
               </div>
               <div class="hud-val" id="hud-pe-val">-</div>
               <div class="hud-sub">
@@ -2999,9 +3016,9 @@ body {
           <!-- 图表控制器与维度选择 -->
           <div class="chart-toolbar">
             <div class="chart-tabs-group" id="chart-mode-tabs">
-              <button class="chart-ctrl-btn active" data-mode="all">📈 综合全景 (走势+PB+PE+ROE)</button>
+              <button class="chart-ctrl-btn active" data-mode="all">📈 综合全景 (走势+PE+PB+ROE)</button>
               <button class="chart-ctrl-btn" data-mode="price">📉 股价走势 (上市至今)</button>
-              <button class="chart-ctrl-btn" data-mode="valuation">💎 估值轨迹 (PB & PE)</button>
+              <button class="chart-ctrl-btn" data-mode="valuation">💎 估值轨迹 (PE & PB)</button>
               <button class="chart-ctrl-btn" data-mode="roe">🏆 净资产收益率 (ROE)</button>
             </div>
 
@@ -3023,11 +3040,11 @@ body {
             </div>
           </div>
 
-          <!-- 走势与指标图例说明条 -->
+          <!-- 走势与指标图例说明条 (高对比度区分) -->
           <div class="chart-legend-banner">
-            <span class="legend-chip"><span class="legend-dot dot-price"></span> 股票走势线 (半透明蓝色面积图)</span>
-            <span class="legend-chip"><span class="legend-dot dot-pb"></span> 市净率 PB (琥珀金)</span>
-            <span class="legend-chip"><span class="legend-dot dot-pe"></span> 市盈率 PE (天青蓝)</span>
+            <span class="legend-chip"><span class="legend-dot dot-price"></span> 股票走势线 (半透明深蓝)</span>
+            <span class="legend-chip"><span class="legend-dot dot-pe"></span> 市盈率 PE (赤红)</span>
+            <span class="legend-chip"><span class="legend-dot dot-pb"></span> 市净率 PB (翡翠绿)</span>
             <span class="legend-chip"><span class="legend-dot dot-roe"></span> 净资产收益率 ROE (紫色阶梯)</span>
           </div>
         </div>

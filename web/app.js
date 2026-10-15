@@ -459,7 +459,32 @@ function bindEvents() {
       state.chartInstance.resize();
     }
   });
+
+  // 鼠标悬浮任何标的卡片/行时静默预加载历史时序与估值，点击详情即刻秒开
+  document.addEventListener('mouseover', (e) => {
+    const target = e.target.closest('[data-stock-code], .stock-card, .dense-table tr');
+    if (target) {
+      const code = target.dataset.stockCode || target.getAttribute('data-code');
+      if (code) prefetchStockHistory(code);
+    }
+  }, { passive: true });
 }
+
+// ==========================================
+// Intelligent History Prefetching Engine
+// ==========================================
+function prefetchStockHistory(code) {
+  if (!code || state.stockHistoryCache.has(code)) return;
+  fetch(`/api/stock/${encodeURIComponent(code)}/history`)
+    .then(r => r.ok ? r.json() : null)
+    .then(data => {
+      if (data && data.status === 'success') {
+        state.stockHistoryCache.set(code, data);
+      }
+    })
+    .catch(() => {});
+}
+window.prefetchStockHistory = prefetchStockHistory;
 
 // ==========================================
 // Code Online Verification
@@ -834,7 +859,7 @@ function renderStockHistoryChart() {
   let yAxisConfig = [];
   let seriesConfig = [];
 
-  // 半透明股票走势线定义 (优雅的现代金融半透明渐变蓝)
+  // 1. 半透明股票走势线定义 (深邃经典蓝 + 优雅半透明渐变面积)
   const priceSeriesDef = {
     name: '自上市至今走势',
     type: 'line',
@@ -843,31 +868,19 @@ function renderStockHistoryChart() {
     smooth: 0.15,
     showSymbol: false,
     lineStyle: {
-      color: 'rgba(37, 99, 235, 0.85)',
-      width: 2.2
+      color: '#1d4ed8',
+      width: 2.5
     },
     areaStyle: {
       color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-        { offset: 0, color: 'rgba(37, 99, 235, 0.35)' },
-        { offset: 0.75, color: 'rgba(37, 99, 235, 0.08)' },
-        { offset: 1, color: 'rgba(37, 99, 235, 0.01)' }
+        { offset: 0, color: 'rgba(29, 78, 216, 0.28)' },
+        { offset: 0.75, color: 'rgba(29, 78, 216, 0.08)' },
+        { offset: 1, color: 'rgba(29, 78, 216, 0.01)' }
       ])
     }
   };
 
-  const pbSeriesDef = {
-    name: '市净率 PB',
-    type: 'line',
-    yAxisIndex: (mode === 'all' ? 1 : (mode === 'valuation' ? 0 : 1)),
-    data: pbList,
-    smooth: 0.2,
-    showSymbol: false,
-    lineStyle: {
-      color: '#d97706',
-      width: 2
-    }
-  };
-
+  // 2. 市盈率 PE 走势线 (高对比鲜明赤红，绝不与走势混淆)
   const peSeriesDef = {
     name: '市盈率 PE',
     type: 'line',
@@ -876,23 +889,39 @@ function renderStockHistoryChart() {
     smooth: 0.2,
     showSymbol: false,
     lineStyle: {
-      color: '#0284c7',
-      width: 2
+      color: '#dc2626',
+      width: 2.2
     }
   };
 
+  // 3. 市净率 PB 走势线 (清澈翡翠绿，独立右轴刻度防压扁)
+  const pbSeriesDef = {
+    name: '市净率 PB',
+    type: 'line',
+    yAxisIndex: (mode === 'all' ? 2 : (mode === 'valuation' ? 0 : 0)),
+    data: pbList,
+    smooth: 0.2,
+    showSymbol: false,
+    lineStyle: {
+      color: '#059669',
+      width: 2.2
+    }
+  };
+
+  // 4. 净资产收益率 ROE (鲜亮尊贵紫，清晰阶梯与圆点标注)
   const roeSeriesDef = {
     name: '净资产收益率 ROE',
     type: 'line',
-    yAxisIndex: (mode === 'all' ? 2 : 0),
+    yAxisIndex: (mode === 'all' ? 3 : 0),
     data: roeList,
     step: 'end',
     showSymbol: true,
-    symbolSize: 4,
+    symbol: 'circle',
+    symbolSize: 5,
     itemStyle: { color: '#7c3aed' },
     lineStyle: {
       color: '#7c3aed',
-      width: 2
+      width: 2.2
     }
   };
 
@@ -904,30 +933,40 @@ function renderStockHistoryChart() {
         position: 'left',
         scale: true,
         splitLine: { lineStyle: { color: '#f1f5f9' } },
-        axisLabel: { color: '#2563eb', fontSize: 10 },
-        axisLine: { show: true, lineStyle: { color: 'rgba(37, 99, 235, 0.3)' } }
+        axisLabel: { color: '#1d4ed8', fontSize: 10, fontWeight: 700 },
+        axisLine: { show: true, lineStyle: { color: '#1d4ed8', width: 1.5 } }
       },
       {
         type: 'value',
-        name: '估值倍数(PB/PE)',
+        name: '市盈率 PE',
         position: 'right',
         scale: true,
         splitLine: { show: false },
-        axisLabel: { color: '#d97706', fontSize: 10 },
-        axisLine: { show: true, lineStyle: { color: '#cbd5e1' } }
+        axisLabel: { color: '#dc2626', fontSize: 10, fontWeight: 700 },
+        axisLine: { show: true, lineStyle: { color: '#dc2626', width: 1.5 } }
+      },
+      {
+        type: 'value',
+        name: '市净率 PB',
+        position: 'right',
+        offset: 52,
+        scale: true,
+        splitLine: { show: false },
+        axisLabel: { color: '#059669', fontSize: 10, fontWeight: 700 },
+        axisLine: { show: true, lineStyle: { color: '#059669', width: 1.5 } }
       },
       {
         type: 'value',
         name: 'ROE(%)',
         position: 'right',
-        offset: 54,
+        offset: 102,
         scale: true,
         splitLine: { show: false },
-        axisLabel: { color: '#7c3aed', fontSize: 10, formatter: '{value}%' },
-        axisLine: { show: true, lineStyle: { color: '#7c3aed' } }
+        axisLabel: { color: '#7c3aed', fontSize: 10, fontWeight: 700, formatter: '{value}%' },
+        axisLine: { show: true, lineStyle: { color: '#7c3aed', width: 1.5 } }
       }
     ];
-    seriesConfig = [priceSeriesDef, pbSeriesDef, peSeriesDef, roeSeriesDef];
+    seriesConfig = [priceSeriesDef, peSeriesDef, pbSeriesDef, roeSeriesDef];
   } else if (mode === 'price') {
     yAxisConfig = [{
       type: 'value',
@@ -935,8 +974,8 @@ function renderStockHistoryChart() {
       position: 'left',
       scale: true,
       splitLine: { lineStyle: { color: '#f1f5f9' } },
-      axisLabel: { color: '#2563eb', fontSize: 11 },
-      axisLine: { show: true, lineStyle: { color: '#2563eb' } }
+      axisLabel: { color: '#1d4ed8', fontSize: 11, fontWeight: 700 },
+      axisLine: { show: true, lineStyle: { color: '#1d4ed8', width: 1.5 } }
     }];
     seriesConfig = [priceSeriesDef];
   } else if (mode === 'valuation') {
@@ -947,8 +986,8 @@ function renderStockHistoryChart() {
         position: 'left',
         scale: true,
         splitLine: { lineStyle: { color: '#f1f5f9' } },
-        axisLabel: { color: '#d97706', fontSize: 11 },
-        axisLine: { show: true, lineStyle: { color: '#d97706' } }
+        axisLabel: { color: '#059669', fontSize: 11, fontWeight: 700 },
+        axisLine: { show: true, lineStyle: { color: '#059669', width: 1.5 } }
       },
       {
         type: 'value',
@@ -956,8 +995,8 @@ function renderStockHistoryChart() {
         position: 'right',
         scale: true,
         splitLine: { show: false },
-        axisLabel: { color: '#0284c7', fontSize: 11 },
-        axisLine: { show: true, lineStyle: { color: '#0284c7' } }
+        axisLabel: { color: '#dc2626', fontSize: 11, fontWeight: 700 },
+        axisLine: { show: true, lineStyle: { color: '#dc2626', width: 1.5 } }
       }
     ];
     seriesConfig = [pbSeriesDef, peSeriesDef];
@@ -968,8 +1007,8 @@ function renderStockHistoryChart() {
       position: 'left',
       scale: true,
       splitLine: { lineStyle: { color: '#f1f5f9' } },
-      axisLabel: { color: '#7c3aed', fontSize: 11, formatter: '{value}%' },
-      axisLine: { show: true, lineStyle: { color: '#7c3aed' } }
+      axisLabel: { color: '#7c3aed', fontSize: 11, fontWeight: 700, formatter: '{value}%' },
+      axisLine: { show: true, lineStyle: { color: '#7c3aed', width: 1.5 } }
     }];
     seriesConfig = [roeSeriesDef];
   }
@@ -1012,9 +1051,9 @@ function renderStockHistoryChart() {
       }
     },
     grid: {
-      left: 45,
-      right: mode === 'all' ? 88 : 45,
-      top: 32,
+      left: 48,
+      right: mode === 'all' ? 146 : 50,
+      top: 36,
       bottom: 45
     },
     xAxis: {
@@ -1157,6 +1196,13 @@ async function refreshData(manual = false) {
       if (el.updateTimer) el.updateTimer.textContent = fullDt;
       if (el.marketFullDatetime) el.marketFullDatetime.textContent = fullDt;
       if (el.matrixTimeVal) el.matrixTimeVal.textContent = fullDt;
+
+      // 静默为前6只高频关注标的预热历史估值缓存，保证用户点击详情秒开
+      if (state.quotes && state.quotes.length) {
+        state.quotes.slice(0, 6).forEach((s, idx) => {
+          setTimeout(() => prefetchStockHistory(s.code), (idx + 1) * 350);
+        });
+      }
     }
 
     if (aData && aData.status === 'success') {

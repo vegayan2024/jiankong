@@ -107,16 +107,25 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 18px;
+  padding: 0 16px;
   z-index: 30;
   flex-shrink: 0;
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .nav-left {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+@media (max-width: 1440px) {
+  .brand-sub {
+    display: none;
+  }
 }
 
 .brand-logo {
@@ -1482,9 +1491,9 @@ body {
   width: 3px;
 }
 
-.chart-hud-card.hud-price::before { background: #2563eb; }
-.chart-hud-card.hud-pb::before { background: #d97706; }
-.chart-hud-card.hud-pe::before { background: #0284c7; }
+.chart-hud-card.hud-price::before { background: #1d4ed8; }
+.chart-hud-card.hud-pe::before { background: #dc2626; }
+.chart-hud-card.hud-pb::before { background: #059669; }
 .chart-hud-card.hud-roe::before { background: #7c3aed; }
 
 .hud-title-row {
@@ -1638,11 +1647,11 @@ body {
 }
 
 .legend-dot.dot-price {
-  background: rgba(37, 99, 235, 0.7);
-  box-shadow: 0 0 4px rgba(37, 99, 235, 0.5);
+  background: #1d4ed8;
+  box-shadow: 0 0 4px rgba(29, 78, 216, 0.4);
 }
-.legend-dot.dot-pb { background: #d97706; }
-.legend-dot.dot-pe { background: #0284c7; }
+.legend-dot.dot-pe { background: #dc2626; }
+.legend-dot.dot-pb { background: #059669; }
 .legend-dot.dot-roe { background: #7c3aed; }
 
 .expand-btn {
@@ -2291,21 +2300,26 @@ body {
    一级主栏目切换与容器面板
    ======================================================== */
 .main-nav-tabs {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
   background: #f1f5f9;
   padding: 3px;
   border-radius: 8px;
   border: 1px solid var(--border-medium);
-  margin-left: 14px;
+  height: 36px;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  margin-left: 8px;
 }
 
 .nav-tab-btn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 14px;
+  height: 28px;
+  line-height: 28px;
+  padding: 0 12px;
   font-size: 12px;
   font-weight: 700;
   border: none;
@@ -2313,12 +2327,14 @@ body {
   color: var(--text-secondary);
   border-radius: 6px;
   cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
   transition: all 0.15s ease;
 }
 
 .nav-tab-btn:hover {
   color: var(--text-main);
-  background: rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.6);
 }
 
 .nav-tab-btn.active {

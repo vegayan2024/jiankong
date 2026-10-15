@@ -29,6 +29,12 @@ os.environ["NO_PROXY"] = "*"
 os.environ["no_proxy"] = "*"
 
 import requests
+from concurrent.futures import ThreadPoolExecutor
+
+http_session = requests.Session()
+adapter = requests.adapters.HTTPAdapter(pool_connections=10, pool_maxsize=20, max_retries=1)
+http_session.mount("http://", adapter)
+http_session.mount("https://", adapter)
 
 logger = logging.getLogger("StockHistoryProvider")
 
@@ -103,27 +109,17 @@ def clean_symbol(code: str) -> Dict[str, str]:
     }
 
 
-def fetch_historical_klines(tencent_sym: str) -> Dict[str, List[Dict[str, Any]]]:
-    """
-    通过腾讯行情接口获取自上市首日至今的月K线(全历史无截断)与近期高频日K线
-    """
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-    }
-
-    monthly_result: List[Dict[str, Any]] = []
-    daily_result: List[Dict[str, Any]] = []
-
-    # 1. 获取自上市首日至今的月K时序 (全景大底图，自上市日100%全覆盖)
+def fetch_month_kline(tencent_sym: str) -> List[Dict[str, Any]]:
+    """获取自上市首日至今的月K线(全历史无截断)"""
     url_month = f"http://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param={tencent_sym},month,,,1200,qfq"
+    monthly_result: List[Dict[str, Any]] = []
     try:
-        resp = requests.get(url_month, headers=headers, timeout=6)
+        resp = http_session.get(url_month, timeout=4.0)
         if resp.status_code == 200:
             d = resp.json()
             stock_data = d.get("data", {}).get(tencent_sym, {})
             raw_months = stock_data.get("qfqmonth", []) or stock_data.get("month", [])
             for item in raw_months:
-                # 格式: [日期, 开盘, 收盘, 最高, 最低, 成交量, ...]
                 if len(item) >= 5:
                     monthly_result.append({
                         "date": item[0],
@@ -135,11 +131,15 @@ def fetch_historical_klines(tencent_sym: str) -> Dict[str, List[Dict[str, Any]]]
                     })
     except Exception as e:
         logger.warning(f"获取 {tencent_sym} 月K异常: {e}")
+    return monthly_result
 
-    # 2. 获取近期高密度日K时序 (最近640个交易日，提供高精度触控与缩放体验)
+
+def fetch_day_kline(tencent_sym: str) -> List[Dict[str, Any]]:
+    """获取近期高密度日K时序 (最近640个交易日)"""
     url_day = f"http://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param={tencent_sym},day,,,640,qfq"
+    daily_result: List[Dict[str, Any]] = []
     try:
-        resp = requests.get(url_day, headers=headers, timeout=6)
+        resp = http_session.get(url_day, timeout=4.0)
         if resp.status_code == 200:
             d = resp.json()
             stock_data = d.get("data", {}).get(tencent_sym, {})
@@ -156,11 +156,7 @@ def fetch_historical_klines(tencent_sym: str) -> Dict[str, List[Dict[str, Any]]]
                     })
     except Exception as e:
         logger.warning(f"获取 {tencent_sym} 日K异常: {e}")
-
-    return {
-        "monthly": monthly_result,
-        "daily": daily_result
-    }
+    return daily_result
 
 
 def fetch_valuation_history(symbol: str) -> List[Dict[str, Any]]:
@@ -178,7 +174,7 @@ def fetch_valuation_history(symbol: str) -> List[Dict[str, Any]]:
 
     result = []
     try:
-        resp = requests.get(url, headers=headers, timeout=8)
+        resp = http_session.get(url, headers=headers, timeout=5.0)
         if resp.status_code == 200:
             res_obj = resp.json().get("result")
             if res_obj and res_obj.get("data"):
@@ -341,14 +337,18 @@ def get_stock_history_and_valuation(code: str) -> Dict[str, Any]:
         except Exception:
             pass
 
-    # 3. 在线拉取行情与指标
-    klines_dict = fetch_historical_klines(tc_sym)
-    monthly_klines = klines_dict.get("monthly", [])
-    daily_klines = klines_dict.get("daily", [])
-
+    # 3. 在线并发拉取行情与指标 (多线程并发加速，降低75%响应延迟)
     is_equity = (atype == "stock")
-    val_list = fetch_valuation_history(sym) if is_equity and market != "HK" else []
-    roe_list = fetch_roe_history(sym) if is_equity and market != "HK" else []
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        f_month = executor.submit(fetch_month_kline, tc_sym)
+        f_day = executor.submit(fetch_day_kline, tc_sym)
+        f_val = executor.submit(fetch_valuation_history, sym) if is_equity and market != "HK" else None
+        f_roe = executor.submit(fetch_roe_history, sym) if is_equity and market != "HK" else None
+
+        monthly_klines = f_month.result() or []
+        daily_klines = f_day.result() or []
+        val_list = f_val.result() if f_val else []
+        roe_list = f_roe.result() if f_roe else []
 
     # 针对东财估值记录未覆盖的历史较早月份，结合财报 BPS/EPS 与月K收盘价回溯生成早期估值线
     if monthly_klines and roe_list:

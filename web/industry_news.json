@@ -40,6 +40,54 @@
     "pinned_badge": "📌 核心板块 · 贵金属"
   },
   {
+    "title": "洪田股份：洪镭光学获多家客户玻璃基板（TGV）直写光刻机订单",
+    "content": "【洪田股份：洪镭光学获多家客户玻璃基板（TGV）直写光刻机订单】10月15日，洪田股份官微消息，近日，旗下洪镭光学获得玻璃基板（TGV）领域多家国内重要客户的直写光刻机采购订单。此次批量签约，标志着洪镭光学在玻璃基板直写光刻领域完成了从“率先进入”到“批量获单”的突破。随着TGV工艺链的持续成熟，玻璃基板有望在后续迎来规模化商用拐点，成为半导体封装产业的“新底座”。",
+    "time": "2026-10-15 11:18:00",
+    "category": "自主算力芯片",
+    "source_name": "东方财富·产业快讯直通车",
+    "source_type": "industry_intel",
+    "url": "https://kuaixun.eastmoney.com/",
+    "authority_score": 7.8,
+    "impact_score": 6.5,
+    "total_score": 7.1,
+    "impact_logic": "触及核心产业催化因子：[突破]，对产业链供需与估值具备显著指向意义。",
+    "matched_stocks": [],
+    "is_hot": false,
+    "is_pinned": false
+  },
+  {
+    "title": "“易中天”集体重挫；新易盛大跌超7% 抹平年内升幅",
+    "content": "【“易中天”集体重挫；新易盛大跌超7% 抹平年内升幅】15日，A股CPO概念股重挫，个股方面，新易盛下滑逾7%，抹平年内升幅；中际旭创跌近5%，天孚通信跌超4%。创业板指日内跌幅再超3%。",
+    "time": "2026-10-15 10:59:00",
+    "category": "算力光模块与通信",
+    "source_name": "东方财富·产业快讯直通车",
+    "source_type": "industry_intel",
+    "url": "https://kuaixun.eastmoney.com/",
+    "authority_score": 7.8,
+    "impact_score": 6.6,
+    "total_score": 7.1,
+    "impact_logic": "触及核心产业催化因子：[CPO]，对产业链供需与估值具备显著指向意义。",
+    "matched_stocks": [
+      {
+        "code": "399006.SZ",
+        "name": "创业板指",
+        "group": "主要指数"
+      },
+      {
+        "code": "300308.SZ",
+        "name": "中际旭创",
+        "group": "风格:算力光模块"
+      },
+      {
+        "code": "300502.SZ",
+        "name": "新易盛",
+        "group": "风格:算力光模块"
+      }
+    ],
+    "is_hot": false,
+    "is_pinned": false
+  },
+  {
     "title": "【2026低空经济产业发展大会在自贡开幕】10月14日，以“低空新蓝海·翼起向未来”为主题的2026低空经济产业发展大会",
     "content": "【2026低空经济产业发展大会在自贡开幕】10月14日，以“低空新蓝海·翼起向未来”为主题的2026低空经济产业发展大会在自贡开幕。四川省委副书记、省长施小琳出席大会。施小琳指出，聚焦“飞起来”加快体制机制创新，积极争取各方面指导支持，巩固协同管理改革试点成果，规范拓展低空空域，布局建设一批通用机场、垂直起降场、公共航路和智能网联系统，不断释放宜飞新空间。聚焦“强起来”深化产业建圈强链，精准绘制产业图谱，聚焦中大型无人机、电动垂直起降飞行器、低空安防装备等关键子链，靶向引育链主和配套企业，加强关键技术协同攻关，完善检验检测、试飞验证、中试熟化、数据共享等公共服务功能，拓展大载重无人机物流、低空旅游、应急救援、医疗物资配送、气象服务等应用场景，持续健全产业生态，加快打造新兴支柱产业。聚焦“管起来”强化安全风险防范，发挥省级低空空域运行服务中心作用，建立覆盖全领域的安全监管机制，完善生产制造、市场流通、飞行活动等制度规范，提升复杂条件下的低空安防和应急处置能力，切实守牢安全底线。（四川日报）",
     "time": "2026-10-15 10:45:00",
@@ -67,6 +115,225 @@
     "impact_score": 6.5,
     "total_score": 7.1,
     "impact_logic": "触及核心产业催化因子：[人形机器人]，对产业链供需与估值具备显著指向意义。",
+    "matched_stocks": [],
+    "is_hot": false,
+    "is_pinned": false
+  },
+  {
+    "title": "元环智能完成连续两轮共计数亿元融资",
+    "content": "【元环智能完成连续两轮共计数亿元融资】近日，元环智能（MetaCircle）完成连续两轮共计数亿元融资。所获融资将用于元模型的核心算法迭代与阶段性产品的探索、扩充团队，并持续发布自研基准benchmark。其中，种子轮由顺为资本领投，上海未来产业基金、星连资本、君礼资本等机构跟投；种子+轮参与方包括上海半导体产投、360战投、首程资本、上海人工智能产业系列基金等产业方及国资背景机构，以及BV百度风投、山行资本、云时资本等双币基金。",
+    "time": "2026-10-15 11:32:44",
+    "category": "自主算力芯片",
+    "source_name": "东方财富·产业快讯直通车",
+    "source_type": "industry_intel",
+    "url": "https://kuaixun.eastmoney.com/",
+    "authority_score": 7.8,
+    "impact_score": 5.0,
+    "total_score": 6.3,
+    "impact_logic": "常规行业运行与跟踪资讯。",
+    "matched_stocks": [],
+    "is_hot": false,
+    "is_pinned": false
+  },
+  {
+    "title": "【元环智能完成连续两轮共计数亿元融资】近日，元环智能（MetaCircle）完成连续两轮共计数亿元融资。所获融资将用于元",
+    "content": "【元环智能完成连续两轮共计数亿元融资】近日，元环智能（MetaCircle）完成连续两轮共计数亿元融资。所获融资将用于元模型的核心算法迭代与阶段性产品的探索、扩充团队，并持续发布自研基准benchmark。其中，种子轮由顺为资本领投，上海未来产业基金、星连资本、君礼资本等机构跟投；种子+轮参与方包括上海半导体产投、360战投、首程资本、上海人工智能产业系列基金等产业方及国资背景机构，以及BV百度风投、山行资本、云时资本等双币基金。",
+    "time": "2026-10-15 11:31:25",
+    "category": "自主算力芯片",
+    "source_name": "新浪财经·7x24快讯",
+    "source_type": "industry_intel",
+    "url": "https://finance.sina.com.cn/7x24/",
+    "authority_score": 7.8,
+    "impact_score": 5.0,
+    "total_score": 6.3,
+    "impact_logic": "常规行业运行与跟踪资讯。",
+    "matched_stocks": [],
+    "is_hot": false,
+    "is_pinned": false
+  },
+  {
+    "title": "【午评：双创指数半日均跌超3%，全市场超5000只个股下跌】A股三大指数早盘集体下跌，截至午盘，上证指数跌1.98%，深",
+    "content": "【午评：双创指数半日均跌超3%，全市场超5000只个股下跌】A股三大指数早盘集体下跌，截至午盘，上证指数跌1.98%，深证成指跌2.78%，创业板指跌3.42%，北证50跌2.76%，科创50指数跌3.02%。全市场成交额9896亿元，较上日放量1289亿元，全市场超5000只个股下跌。板块题材上，煤炭开采加工、油气开采及服务、港口航运、半导体、猪肉、种植业与林业板块跌幅居前；白酒、元件、医疗服务、证券板块表现相对领先。盘面上，美国公布的最新通胀数据超预期，加息概率上升，对利率敏感的科技板块全线回调，长鑫科技跌超4%总市值跌破3万亿元，总市值退居至工商银行之后，“易中天”同样表现不佳推动指数震荡走弱。中东局势急剧恶化，两艘新加坡籍货轮遇袭，航运板块大幅调整，中远海能、招商南油、招商轮船盘中跌停。煤炭板块同样表现落后，昊华能源、兖矿能源、郑州煤电跌幅居前。此外，猪肉、种植业、半导体等多个板块下挫。另一方面，白酒板块逆势上涨，皇台酒业涨停，金种子酒、金徽酒跟涨，分析人士指出资金寻找“避风港”，流向具备充沛现金流、低估值和高分红特征的大消费板块。科技板块中的PCB概念股表现坚挺，澳弘电子19天11板，骏亚科技、金禄电子等股涨停，此前多家PCB公司公布的业绩预告亮眼。",
+    "time": "2026-10-15 11:31:19",
+    "category": "自主算力芯片",
+    "source_name": "新浪财经·7x24快讯",
+    "source_type": "industry_intel",
+    "url": "https://finance.sina.com.cn/7x24/",
+    "authority_score": 7.8,
+    "impact_score": 5.0,
+    "total_score": 6.3,
+    "impact_logic": "常规行业运行与跟踪资讯。",
+    "matched_stocks": [
+      {
+        "code": "000001.SH",
+        "name": "上证指数",
+        "group": "主要指数"
+      },
+      {
+        "code": "000688.SH",
+        "name": "科创50",
+        "group": "主要指数"
+      },
+      {
+        "code": "399006.SZ",
+        "name": "创业板指",
+        "group": "主要指数"
+      },
+      {
+        "code": "601975.SH",
+        "name": "招商南油",
+        "group": "通用资源"
+      }
+    ],
+    "is_hot": false,
+    "is_pinned": false
+  },
+  {
+    "title": "【商品期货早盘收盘】白银连续跌5.60%，上海原油连续跌4.39%，锡连续跌3.82%，焦煤连续跌3.41%，苹果连续跌",
+    "content": "【商品期货早盘收盘】白银连续跌5.60%，上海原油连续跌4.39%，锡连续跌3.82%，焦煤连续跌3.41%，苹果连续跌3.38%。",
+    "time": "2026-10-15 11:30:02",
+    "category": "战略贵金属",
+    "source_name": "新浪财经·7x24快讯",
+    "source_type": "industry_intel",
+    "url": "https://finance.sina.com.cn/7x24/",
+    "authority_score": 7.8,
+    "impact_score": 5.0,
+    "total_score": 6.3,
+    "impact_logic": "常规行业运行与跟踪资讯。",
+    "matched_stocks": [],
+    "is_hot": false,
+    "is_pinned": false
+  },
+  {
+    "title": "中国创新资产密集入选ESMO会议LBA研究，港股创新药ETF广发（513120）标的指数逆市涨超1%，机构称近期阶段性回调扰动不影响产业长期趋势",
+    "content": "【中国创新资产密集入选ESMO会议LBA研究，港股创新药ETF广发（513120）标的指数逆市涨超1%，机构称近期阶段性回调扰动不影响产业长期趋势】10月15日，截至发稿恒生指数下跌1.17%，中证香港创新药指数(931787.CSI)上涨1.26%，该指数成分股中，昭衍新药上涨超6%，轩竹生物-B上涨超5%，康希诺生物上涨近5%。",
+    "time": "2026-10-15 11:25:47",
+    "category": "创新药出海",
+    "source_name": "东方财富·产业快讯直通车",
+    "source_type": "industry_intel",
+    "url": "https://kuaixun.eastmoney.com/",
+    "authority_score": 7.8,
+    "impact_score": 5.0,
+    "total_score": 6.3,
+    "impact_logic": "常规行业运行与跟踪资讯。",
+    "matched_stocks": [
+      {
+        "code": "HSI.HK",
+        "name": "恒生指数",
+        "group": "主要指数"
+      }
+    ],
+    "is_hot": false,
+    "is_pinned": false
+  },
+  {
+    "title": "赤泽亮正：芯片供应合作是经济安全的关键。",
+    "content": "赤泽亮正：芯片供应合作是经济安全的关键。",
+    "time": "2026-10-15 11:15:03",
+    "category": "自主算力芯片",
+    "source_name": "新浪财经·7x24快讯",
+    "source_type": "industry_intel",
+    "url": "https://finance.sina.com.cn/7x24/",
+    "authority_score": 7.8,
+    "impact_score": 5.0,
+    "total_score": 6.3,
+    "impact_logic": "常规行业运行与跟踪资讯。",
+    "matched_stocks": [],
+    "is_hot": false,
+    "is_pinned": false
+  },
+  {
+    "title": "日本经济产业大臣：日美就5500亿美元投资计划下的首个芯片项目达成共识",
+    "content": "日本经济产业大臣赤泽亮正表示，日美就5500亿美元投资计划下的首个芯片项目达成共识。",
+    "time": "2026-10-15 11:14:47",
+    "category": "自主算力芯片",
+    "source_name": "东方财富·产业快讯直通车",
+    "source_type": "industry_intel",
+    "url": "https://kuaixun.eastmoney.com/",
+    "authority_score": 7.8,
+    "impact_score": 5.0,
+    "total_score": 6.3,
+    "impact_logic": "常规行业运行与跟踪资讯。",
+    "matched_stocks": [],
+    "is_hot": false,
+    "is_pinned": false
+  },
+  {
+    "title": "赤泽亮正：芯片项目在人工智能时代具有重大意义。",
+    "content": "赤泽亮正：芯片项目在人工智能时代具有重大意义。",
+    "time": "2026-10-15 11:10:01",
+    "category": "自主算力芯片",
+    "source_name": "新浪财经·7x24快讯",
+    "source_type": "industry_intel",
+    "url": "https://finance.sina.com.cn/7x24/",
+    "authority_score": 7.8,
+    "impact_score": 5.0,
+    "total_score": 6.3,
+    "impact_logic": "常规行业运行与跟踪资讯。",
+    "matched_stocks": [],
+    "is_hot": false,
+    "is_pinned": false
+  },
+  {
+    "title": "从芯片到智算网络，深圳万里眼五大高端测试方案亮相湾芯展",
+    "content": "【从芯片到智算网络，深圳万里眼五大高端测试方案亮相湾芯展】在今年的湾芯展上，记者从深圳市万里眼技术有限公司获悉，该公司携五大高端测试方案亮相展会，覆盖光电芯片、射频芯片、高速接口芯片、光模块和智算网络等关键环节，集中展示国产高端电子测量仪器的最新技术进展。",
+    "time": "2026-10-15 11:10:00",
+    "category": "自主算力芯片",
+    "source_name": "东方财富·产业快讯直通车",
+    "source_type": "industry_intel",
+    "url": "https://kuaixun.eastmoney.com/",
+    "authority_score": 7.8,
+    "impact_score": 5.0,
+    "total_score": 6.3,
+    "impact_logic": "常规行业运行与跟踪资讯。",
+    "matched_stocks": [],
+    "is_hot": false,
+    "is_pinned": false
+  },
+  {
+    "title": "【阶跃Step 5 Preview权重开放】据阶跃消息，今天正式释放Step 5 Preview权重。本次开放：BF16",
+    "content": "【阶跃Step 5 Preview权重开放】据阶跃消息，今天正式释放Step 5 Preview权重。本次开放：BF16与FP8模型权重、技术博客、配套开源开发工具。据介绍，Step 5 Preview面向长程Agent任务而设计，采用稀疏MoE架构，总参数量600B、每token激活参数仅27B，支持100万token上下文窗口，原生支持文本与视觉输入。目前，模型权重已上线Hugging Face和Model Scope，并提供面向多种芯片平台和推理框架的适配支持。",
+    "time": "2026-10-15 11:09:26",
+    "category": "自主算力芯片",
+    "source_name": "新浪财经·7x24快讯",
+    "source_type": "industry_intel",
+    "url": "https://finance.sina.com.cn/7x24/",
+    "authority_score": 7.8,
+    "impact_score": 5.0,
+    "total_score": 6.3,
+    "impact_logic": "常规行业运行与跟踪资讯。",
+    "matched_stocks": [],
+    "is_hot": false,
+    "is_pinned": false
+  },
+  {
+    "title": "日本经济产业大臣赤泽亮正：日本和美国就5500亿美元投资计划下的首个芯片项目达成一致。",
+    "content": "日本经济产业大臣赤泽亮正：日本和美国就5500亿美元投资计划下的首个芯片项目达成一致。",
+    "time": "2026-10-15 11:07:26",
+    "category": "自主算力芯片",
+    "source_name": "新浪财经·7x24快讯",
+    "source_type": "industry_intel",
+    "url": "https://finance.sina.com.cn/7x24/",
+    "authority_score": 7.8,
+    "impact_score": 5.0,
+    "total_score": 6.3,
+    "impact_logic": "常规行业运行与跟踪资讯。",
+    "matched_stocks": [],
+    "is_hot": false,
+    "is_pinned": false
+  },
+  {
+    "title": "深创投张健：半导体产业整合成为趋势 未来投资主线方向包括晶圆级先进封测等",
+    "content": "【深创投张健：半导体产业整合成为趋势 未来投资主线方向包括晶圆级先进封测等】在今日举行的2026湾芯展第三届湾区半导体投融资战略发展论坛上，深圳市创新投资集团有限公司党委副书记、董事张键表示，半导体产业整合成为趋势，2025年半导体产业并购金额约1200亿元，为五年最高；2026年上半年已达841.95亿元。深创投今年上半年投资半导体产业的资金占全市场的19.7%。半导体领域，深创投已投资超350家企业，覆盖材料一设备一设计一制造一应用全链条。",
+    "time": "2026-10-15 11:06:49",
+    "category": "自主算力芯片",
+    "source_name": "东方财富·产业快讯直通车",
+    "source_type": "industry_intel",
+    "url": "https://kuaixun.eastmoney.com/",
+    "authority_score": 7.8,
+    "impact_score": 5.0,
+    "total_score": 6.3,
+    "impact_logic": "常规行业运行与跟踪资讯。",
     "matched_stocks": [],
     "is_hot": false,
     "is_pinned": false
@@ -216,49 +483,6 @@
     "is_pinned": false
   },
   {
-    "title": "市场消息：字节跳动正洽谈采购联发科用于数据中心的AI芯片。",
-    "content": "市场消息：字节跳动正洽谈采购联发科用于数据中心的AI芯片。",
-    "time": "2026-10-15 10:39:01",
-    "category": "自主算力芯片",
-    "source_name": "新浪财经·7x24快讯",
-    "source_type": "industry_intel",
-    "url": "https://finance.sina.com.cn/7x24/",
-    "authority_score": 7.8,
-    "impact_score": 5.0,
-    "total_score": 6.3,
-    "impact_logic": "常规行业运行与跟踪资讯。",
-    "matched_stocks": [],
-    "is_hot": false,
-    "is_pinned": false
-  },
-  {
-    "title": "医保新政叠加ESMO密集催化 百济神州涨超4%领跑相关个股",
-    "content": "【医保新政叠加ESMO密集催化 百济神州涨超4%领跑相关个股】今日港股市场承压的背景下，医药股逆势走强。截至发稿，百济神州(06160.HK)涨4.01%，翰森制药(03692.HK)涨3.07%，再鼎医药(09688.HK)涨2.80%，石药集团(01093.HK)涨2.55%。",
-    "time": "2026-10-15 10:23:00",
-    "category": "创新药出海",
-    "source_name": "东方财富·产业快讯直通车",
-    "source_type": "industry_intel",
-    "url": "https://kuaixun.eastmoney.com/",
-    "authority_score": 7.8,
-    "impact_score": 5.0,
-    "total_score": 6.3,
-    "impact_logic": "常规行业运行与跟踪资讯。",
-    "matched_stocks": [
-      {
-        "code": "06160.HK",
-        "name": "百济神州",
-        "group": "风格:创新药出海"
-      },
-      {
-        "code": "688235.SH",
-        "name": "百济神州",
-        "group": "风格:创新药出海"
-      }
-    ],
-    "is_hot": false,
-    "is_pinned": false
-  },
-  {
     "title": "光模块、PCB接连被传限制 海外政策扰动被放大 多方解读来了",
     "content": "【光模块、PCB接连被传限制 海外政策扰动被放大 多方解读来了】记者梳理相关政策文件发现，近期引发市场波动的几项事件，涉及的监管范围和实施进度并不相同。FCC针对3.2T光模块的限制传闻尚无正式政策文本，美国现有PCB采购限制主要针对特定国防采购行为，337调查则仍处于立案阶段，尚未对相关专利侵权主张作出实质认定。随着政策细节逐渐清晰，部分机构开始重新评估海外限制对产业链的实际影响。",
     "time": "2026-10-15 08:54:52",
@@ -402,44 +626,6 @@
     "content": "【摩根大通：半导体景气延续 2027年晶圆设备支出或增38%】摩根大通10月12日发布半导体行业第三季度财报季前瞻报告指出，预计大多数覆盖企业将公布稳健的第三季度业绩，并对第四季度及2027年给出积极指引。过去几个财报季，超过70%的覆盖企业获得正向盈利预期修正，这一趋势有望延续。",
     "time": "2026-10-15 00:27:54",
     "category": "自主算力芯片",
-    "source_name": "行业权威视点·深度要闻",
-    "source_type": "industry_intel",
-    "url": "https://kuaixun.eastmoney.com/",
-    "authority_score": 7.8,
-    "impact_score": 5.0,
-    "total_score": 6.3,
-    "impact_logic": "常规行业运行与跟踪资讯。",
-    "matched_stocks": [],
-    "is_hot": false,
-    "is_pinned": false
-  },
-  {
-    "title": "荣盛石化：预计前三季度净利润同比增长778%-823%",
-    "content": "【荣盛石化：预计前三季度净利润同比增长778%-823%】荣盛石化(002493.SZ)公告称，预计2026年前三季度归属于上市公司股东的净利润为78.00亿元-82.00亿元，同比增长777.93%-822.95%。业绩变动主要系报告期内石油化工行业景气度回升，海外成品油市场行情向好，公司动态优化产销策略，主要产品加工价差明显修复，产品毛利水平得到改善。注：公司Q3净利润预计26.89亿-30.89亿，Q2净利润22.95亿，据此计算，Q3净利润预计环比增长17%-34%。",
-    "time": "2026-10-14 20:10:38",
-    "category": "化工",
-    "source_name": "行业权威视点·深度要闻",
-    "source_type": "industry_intel",
-    "url": "https://kuaixun.eastmoney.com/",
-    "authority_score": 7.8,
-    "impact_score": 5.0,
-    "total_score": 6.3,
-    "impact_logic": "常规行业运行与跟踪资讯。",
-    "matched_stocks": [
-      {
-        "code": "002493.SZ",
-        "name": "荣盛石化",
-        "group": "化工"
-      }
-    ],
-    "is_hot": false,
-    "is_pinned": false
-  },
-  {
-    "title": "一箭十星 朱雀二号改进型遥四运载火箭发射成功",
-    "content": "【一箭十星 朱雀二号改进型遥四运载火箭发射成功】10月14日19时40分，朱雀二号改进型遥四运载火箭在东风商业航天创新试验区发射升空，将搭载的国星宇航星时代-39、44～50星，光传-03、04星共10颗卫星顺利送入预定轨道，飞行试验任务取得圆满成功。",
-    "time": "2026-10-14 20:06:50",
-    "category": "商业航天与卫星",
     "source_name": "行业权威视点·深度要闻",
     "source_type": "industry_intel",
     "url": "https://kuaixun.eastmoney.com/",
