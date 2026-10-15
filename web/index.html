@@ -2926,10 +2926,112 @@ body {
           <span id="drawer-code" style="font-family:var(--font-mono); font-size:12px; color:var(--text-dim);"></span>
           <span id="drawer-badge" class="market-badge"></span>
         </div>
-        <button class="close-btn" id="btn-close-drawer">✕</button>
+        <div style="display:flex; align-items:center; gap:6px;">
+          <button class="expand-btn" id="btn-expand-drawer" title="展开至更宽全屏图表视图">⛶ 展开</button>
+          <button class="close-btn" id="btn-close-drawer">✕</button>
+        </div>
       </div>
 
       <div class="drawer-content">
+        <!-- 股票自上市至今全景走势线与估值PB/PE/ROE核心图表 -->
+        <div class="chart-section" id="stock-detail-chart-section">
+          <div class="chart-section-header">
+            <div class="chart-section-title">
+              <span>📈 全景量价与估值中枢时序</span>
+              <span id="chart-ipo-tag" class="hud-badge" style="background:#e0f2fe; color:#0369a1;">自上市至今</span>
+            </div>
+            <div id="chart-status-pill" style="font-size:11px; color:var(--text-muted);">
+              就绪
+            </div>
+          </div>
+
+          <!-- 顶栏 4 关键指标 HUD 卡片群 -->
+          <div class="chart-hud-grid">
+            <div class="chart-hud-card hud-price">
+              <div class="hud-title-row">
+                <span class="hud-label">自上市至今走势</span>
+                <span id="hud-price-days" class="hud-badge" style="background:#eff6ff; color:#1d4ed8;">-</span>
+              </div>
+              <div class="hud-val" id="hud-price-val">-</div>
+              <div class="hud-sub">
+                <span id="hud-price-low">低: -</span>
+                <span id="hud-price-high">高: -</span>
+              </div>
+            </div>
+
+            <div class="chart-hud-card hud-pb">
+              <div class="hud-title-row">
+                <span class="hud-label">市净率 PB (MRQ)</span>
+                <span id="hud-pb-pct" class="hud-badge" style="background:#fef3c7; color:#b45309;">分位 -%</span>
+              </div>
+              <div class="hud-val" id="hud-pb-val">-</div>
+              <div class="hud-sub">
+                <span id="hud-pb-min">低: -</span>
+                <span id="hud-pb-max">高: -</span>
+              </div>
+            </div>
+
+            <div class="chart-hud-card hud-pe">
+              <div class="hud-title-row">
+                <span class="hud-label">市盈率 PE (TTM)</span>
+                <span id="hud-pe-pct" class="hud-badge" style="background:#e0f2fe; color:#0369a1;">分位 -%</span>
+              </div>
+              <div class="hud-val" id="hud-pe-val">-</div>
+              <div class="hud-sub">
+                <span id="hud-pe-min">低: -</span>
+                <span id="hud-pe-max">高: -</span>
+              </div>
+            </div>
+
+            <div class="chart-hud-card hud-roe">
+              <div class="hud-title-row">
+                <span class="hud-label">净资产收益率 ROE</span>
+                <span id="hud-roe-src" class="hud-badge" style="background:#f5f3ff; color:#6d28d9;">最新期</span>
+              </div>
+              <div class="hud-val" id="hud-roe-val">-%</div>
+              <div class="hud-sub">
+                <span id="hud-roe-avg">均值: -%</span>
+                <span id="hud-roe-quarter">-</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 图表控制器与维度选择 -->
+          <div class="chart-toolbar">
+            <div class="chart-tabs-group" id="chart-mode-tabs">
+              <button class="chart-ctrl-btn active" data-mode="all">📈 综合全景 (走势+PB+PE+ROE)</button>
+              <button class="chart-ctrl-btn" data-mode="price">📉 股价走势 (上市至今)</button>
+              <button class="chart-ctrl-btn" data-mode="valuation">💎 估值轨迹 (PB & PE)</button>
+              <button class="chart-ctrl-btn" data-mode="roe">🏆 净资产收益率 (ROE)</button>
+            </div>
+
+            <div class="chart-range-group" id="chart-range-tabs">
+              <button class="chart-ctrl-btn active" data-range="all">全部</button>
+              <button class="chart-ctrl-btn" data-range="10y">近10年</button>
+              <button class="chart-ctrl-btn" data-range="5y">近5年</button>
+              <button class="chart-ctrl-btn" data-range="3y">近3年</button>
+              <button class="chart-ctrl-btn" data-range="1y">近1年</button>
+            </div>
+          </div>
+
+          <!-- ECharts 画布容器 -->
+          <div class="chart-canvas-box">
+            <div id="stock-history-chart" class="chart-canvas-el"></div>
+            <div id="stock-chart-loading" class="chart-loading-overlay">
+              <div class="chart-spinner"></div>
+              <span>正在获取自上市至今走势线与估值数据...</span>
+            </div>
+          </div>
+
+          <!-- 走势与指标图例说明条 -->
+          <div class="chart-legend-banner">
+            <span class="legend-chip"><span class="legend-dot dot-price"></span> 股票走势线 (半透明蓝色面积图)</span>
+            <span class="legend-chip"><span class="legend-dot dot-pb"></span> 市净率 PB (琥珀金)</span>
+            <span class="legend-chip"><span class="legend-dot dot-pe"></span> 市盈率 PE (天青蓝)</span>
+            <span class="legend-chip"><span class="legend-dot dot-roe"></span> 净资产收益率 ROE (紫色阶梯)</span>
+          </div>
+        </div>
+
         <!-- 实时行情指标指标卡 -->
         <div>
           <div style="font-size:11px; font-weight:600; color:var(--text-dim); margin-bottom:8px;">实时量价关键指标</div>
@@ -2960,6 +3062,7 @@ body {
     <div id="toast-container" class="toast-container"></div>
   </div>
 
+  <script src="echarts.min.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

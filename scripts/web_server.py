@@ -1115,6 +1115,29 @@ async def get_stock_detail(code: str):
     }
 
 
+@app.get("/api/stock/{code}/history")
+async def get_stock_history_endpoint(code: str):
+    """
+    获取标的自上市首日至最新交易日的全景走势线、PB、PE 与 ROE 走势及分位数指标
+    """
+    try:
+        from scripts.stock_history_provider import get_stock_history_and_valuation
+        res = await asyncio.to_thread(get_stock_history_and_valuation, code)
+        return res
+    except Exception as e:
+        logger.error(f"获取标的 {code} 历史走势与估值失败: {e}", exc_info=True)
+        return {
+            "status": "error",
+            "message": str(e),
+            "summary": {},
+            "monthly_history": [],
+            "daily_history": [],
+            "valuation_history": [],
+            "roe_history": []
+        }
+
+
+
 @app.get("/style.css")
 async def get_style_css():
     css_file = WEB_DIR / "style.css"

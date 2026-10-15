@@ -22,7 +22,13 @@ const state = {
   foldedGroups: new Set(),
   themesSummary: [],
   lastRenderFingerprint: '',
-  previousPrices: new Map()
+  previousPrices: new Map(),
+  stockHistoryCache: new Map(),
+  chartInstance: null,
+  currentHistoryData: null,
+  activeChartMode: 'all',
+  activeChartRange: 'all',
+  isDrawerExpanded: false
 };
 
 // DOM Elements Cache
@@ -92,6 +98,30 @@ const el = {
   drawerNews: document.getElementById('drawer-news'),
   drawerAlerts: document.getElementById('drawer-alerts'),
   btnCloseDrawer: document.getElementById('btn-close-drawer'),
+  btnExpandDrawer: document.getElementById('btn-expand-drawer'),
+  // Stock Chart elements
+  chartIpoTag: document.getElementById('chart-ipo-tag'),
+  chartStatusPill: document.getElementById('chart-status-pill'),
+  chartLoading: document.getElementById('stock-chart-loading'),
+  chartEl: document.getElementById('stock-history-chart'),
+  hudPriceDays: document.getElementById('hud-price-days'),
+  hudPriceVal: document.getElementById('hud-price-val'),
+  hudPriceLow: document.getElementById('hud-price-low'),
+  hudPriceHigh: document.getElementById('hud-price-high'),
+  hudPbPct: document.getElementById('hud-pb-pct'),
+  hudPbVal: document.getElementById('hud-pb-val'),
+  hudPbMin: document.getElementById('hud-pb-min'),
+  hudPbMax: document.getElementById('hud-pb-max'),
+  hudPePct: document.getElementById('hud-pe-pct'),
+  hudPeVal: document.getElementById('hud-pe-val'),
+  hudPeMin: document.getElementById('hud-pe-min'),
+  hudPeMax: document.getElementById('hud-pe-max'),
+  hudRoeSrc: document.getElementById('hud-roe-src'),
+  hudRoeVal: document.getElementById('hud-roe-val'),
+  hudRoeAvg: document.getElementById('hud-roe-avg'),
+  hudRoeQuarter: document.getElementById('hud-roe-quarter'),
+  chartModeTabs: document.getElementById('chart-mode-tabs'),
+  chartRangeTabs: document.getElementById('chart-range-tabs'),
   // Quick Threshold Modal
   modalThreshold: document.getElementById('modal-threshold'),
   thCodeTitle: document.getElementById('th-code-title'),
@@ -399,6 +429,36 @@ function bindEvents() {
   // Detail Drawer Listeners
   if (el.btnCloseDrawer) el.btnCloseDrawer.addEventListener('click', closeDrawer);
   if (el.drawerOverlay) el.drawerOverlay.addEventListener('click', closeDrawer);
+  if (el.btnExpandDrawer) el.btnExpandDrawer.addEventListener('click', toggleDrawerExpand);
+
+  // Stock History Chart Controls
+  if (el.chartModeTabs) {
+    el.chartModeTabs.querySelectorAll('.chart-ctrl-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        el.chartModeTabs.querySelectorAll('.chart-ctrl-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        state.activeChartMode = btn.dataset.mode;
+        renderStockHistoryChart();
+      });
+    });
+  }
+
+  if (el.chartRangeTabs) {
+    el.chartRangeTabs.querySelectorAll('.chart-ctrl-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        el.chartRangeTabs.querySelectorAll('.chart-ctrl-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        state.activeChartRange = btn.dataset.range;
+        renderStockHistoryChart();
+      });
+    });
+  }
+
+  window.addEventListener('resize', () => {
+    if (state.chartInstance) {
+      state.chartInstance.resize();
+    }
+  });
 }
 
 // ==========================================
@@ -449,6 +509,7 @@ function openThresholdModal(code, currentTh) {
   el.thInputRange.value = currentTh;
   el.modalThreshold.style.display = 'flex';
 }
+window.openThresholdModal = openThresholdModal;
 
 function openDrawer(code) {
   state.activeDetailCode = code;
@@ -456,11 +517,28 @@ function openDrawer(code) {
   el.drawerDetail.style.display = 'flex';
   loadStockDetail(code);
 }
+window.openDrawer = openDrawer;
 
 function closeDrawer() {
   el.drawerOverlay.style.display = 'none';
   el.drawerDetail.style.display = 'none';
+  el.drawerDetail.classList.remove('is-expanded');
+  state.isDrawerExpanded = false;
+  if (el.btnExpandDrawer) el.btnExpandDrawer.textContent = '⛶ 展开';
   state.activeDetailCode = null;
+}
+
+function toggleDrawerExpand() {
+  state.isDrawerExpanded = !state.isDrawerExpanded;
+  el.drawerDetail.classList.toggle('is-expanded', state.isDrawerExpanded);
+  if (el.btnExpandDrawer) {
+    el.btnExpandDrawer.textContent = state.isDrawerExpanded ? '⛶ 还原' : '⛶ 展开';
+  }
+  setTimeout(() => {
+    if (state.chartInstance) {
+      state.chartInstance.resize();
+    }
+  }, 260);
 }
 
 function closeAllModals() {
@@ -587,6 +665,388 @@ async function loadStockDetail(code) {
   } catch (err) {
     console.warn('获取标的详情异常:', err);
   }
+
+  // 触发自上市至今历史走势线、PB、PE与ROE图表加载
+  loadStockHistoryAndChart(code);
+}
+
+// ==========================================
+// Stock History & Valuation (PB, PE, ROE) Chart Engine
+// ==========================================
+async function loadStockHistoryAndChart(code) {
+  if (!el.chartEl) return;
+  
+  if (el.chartLoading) el.chartLoading.style.display = 'flex';
+  if (el.chartStatusPill) el.chartStatusPill.textContent = '正在获取历史走势与估值...';
+
+  try {
+    let data = state.stockHistoryCache.get(code);
+    if (!data) {
+      const resp = await fetch(`/api/stock/${encodeURIComponent(code)}/history`);
+      if (resp.ok) {
+        data = await resp.json();
+        if (data.status === 'success') {
+          state.stockHistoryCache.set(code, data);
+        }
+      }
+    }
+
+    if (data && data.status === 'success') {
+      state.currentHistoryData = data;
+      const s = data.summary || {};
+
+      // 1. 更新 HUD 统计指标卡
+      if (el.chartIpoTag) {
+        el.chartIpoTag.textContent = s.ipo_date ? `上市首日: ${s.ipo_date}` : '全时序';
+      }
+      if (el.chartStatusPill) {
+        const totalLen = (data.monthly_history?.length || 0);
+        el.chartStatusPill.textContent = `时序: ${totalLen} 个月度点 (${s.ipo_date || ''} ~ ${s.latest_date || ''})`;
+      }
+
+      // HUD Price
+      if (el.hudPriceDays) el.hudPriceDays.textContent = s.total_months ? `上市 ${s.total_months} 月` : (s.total_days ? `${s.total_days} 天` : '至今');
+      if (el.hudPriceVal) el.hudPriceVal.textContent = s.latest_price ? `¥ ${Number(s.latest_price).toFixed(2)}` : '-';
+      if (el.hudPriceLow) el.hudPriceLow.textContent = `低: ¥${Number(s.lowest_price || 0).toFixed(2)}`;
+      if (el.hudPriceHigh) el.hudPriceHigh.textContent = `高: ¥${Number(s.highest_price || 0).toFixed(2)}`;
+
+      // HUD PB
+      if (el.hudPbPct) el.hudPbPct.textContent = s.pb_percentile !== null && s.pb_percentile !== undefined ? `分位 ${s.pb_percentile}%` : '分位 -%';
+      if (el.hudPbVal) el.hudPbVal.textContent = s.latest_pb !== null && s.latest_pb !== undefined ? Number(s.latest_pb).toFixed(2) : '-';
+      if (el.hudPbMin) el.hudPbMin.textContent = `低: ${s.min_pb !== null && s.min_pb !== undefined ? Number(s.min_pb).toFixed(2) : '-'}`;
+      if (el.hudPbMax) el.hudPbMax.textContent = `高: ${s.max_pb !== null && s.max_pb !== undefined ? Number(s.max_pb).toFixed(2) : '-'}`;
+
+      // HUD PE
+      if (el.hudPePct) el.hudPePct.textContent = s.pe_percentile !== null && s.pe_percentile !== undefined ? `分位 ${s.pe_percentile}%` : '分位 -%';
+      if (el.hudPeVal) el.hudPeVal.textContent = s.latest_pe !== null && s.latest_pe !== undefined ? Number(s.latest_pe).toFixed(2) : '-';
+      if (el.hudPeMin) el.hudPeMin.textContent = `低: ${s.min_pe !== null && s.min_pe !== undefined ? Number(s.min_pe).toFixed(2) : '-'}`;
+      if (el.hudPeMax) el.hudPeMax.textContent = `高: ${s.max_pe !== null && s.max_pe !== undefined ? Number(s.max_pe).toFixed(2) : '-'}`;
+
+      // HUD ROE
+      if (el.hudRoeVal) el.hudRoeVal.textContent = s.latest_roe !== null && s.latest_roe !== undefined ? `${Number(s.latest_roe).toFixed(2)}%` : '-%';
+      if (el.hudRoeAvg) el.hudRoeAvg.textContent = `历年均值: ${s.avg_roe !== null && s.avg_roe !== undefined ? Number(s.avg_roe).toFixed(2) + '%' : '-'}`;
+      if (el.hudRoeQuarter) {
+        const lastRoe = data.roe_history && data.roe_history.length ? data.roe_history[data.roe_history.length - 1] : null;
+        el.hudRoeQuarter.textContent = lastRoe ? `报告期: ${lastRoe.date}` : '';
+      }
+
+      // 2. 渲染 ECharts
+      renderStockHistoryChart();
+    } else {
+      if (el.chartStatusPill) el.chartStatusPill.textContent = '暂无历史走势数据';
+    }
+  } catch (err) {
+    console.error('获取标的历史走势与估值失败:', err);
+    if (el.chartStatusPill) el.chartStatusPill.textContent = '获取数据异常';
+  } finally {
+    if (el.chartLoading) el.chartLoading.style.display = 'none';
+  }
+}
+
+function renderStockHistoryChart() {
+  if (!window.echarts || !el.chartEl) return;
+  const data = state.currentHistoryData;
+  if (!data) return;
+
+  if (!state.chartInstance) {
+    state.chartInstance = echarts.init(el.chartEl);
+  }
+
+  const range = state.activeChartRange || 'all';
+  const mode = state.activeChartMode || 'all';
+
+  // 1. 确定时间截断点
+  let cutoffDate = '1970-01-01';
+  const now = new Date();
+  if (range === '1y') {
+    const d = new Date(now); d.setFullYear(d.getFullYear() - 1);
+    cutoffDate = d.toISOString().split('T')[0];
+  } else if (range === '3y') {
+    const d = new Date(now); d.setFullYear(d.getFullYear() - 3);
+    cutoffDate = d.toISOString().split('T')[0];
+  } else if (range === '5y') {
+    const d = new Date(now); d.setFullYear(d.getFullYear() - 5);
+    cutoffDate = d.toISOString().split('T')[0];
+  } else if (range === '10y') {
+    const d = new Date(now); d.setFullYear(d.getFullYear() - 10);
+    cutoffDate = d.toISOString().split('T')[0];
+  }
+
+  // 2. 选取适宜粒度的价格序列 (1年/3年优先高精度日K，5年/10年/全部使用月K)
+  let rawKlines = [];
+  if ((range === '1y' || range === '3y') && data.daily_history && data.daily_history.length) {
+    rawKlines = data.daily_history.filter(k => k.date >= cutoffDate);
+  } else {
+    rawKlines = (data.monthly_history || []).filter(k => k.date >= cutoffDate);
+    if (!rawKlines.length && data.daily_history) {
+      rawKlines = data.daily_history.filter(k => k.date >= cutoffDate);
+    }
+  }
+
+  const dateList = rawKlines.map(k => k.date);
+  const priceList = rawKlines.map(k => k.close);
+
+  // 3. 构建 PB & PE 对齐映射
+  const valMap = new Map();
+  (data.valuation_history || []).forEach(v => {
+    if (v.date) valMap.set(v.date, v);
+  });
+  const sortedValDates = Array.from(valMap.keys()).sort();
+
+  const pbList = [];
+  const peList = [];
+  for (const d of dateList) {
+    let matched = valMap.get(d);
+    if (!matched) {
+      for (let i = sortedValDates.length - 1; i >= 0; i--) {
+        if (sortedValDates[i] <= d) {
+          matched = valMap.get(sortedValDates[i]);
+          break;
+        }
+      }
+    }
+    pbList.push(matched && matched.pb !== null ? matched.pb : null);
+    peList.push(matched && matched.pe !== null && matched.pe > 0 && matched.pe < 400 ? matched.pe : null);
+  }
+
+  // 4. 构建 ROE 对齐映射
+  const roeMap = new Map();
+  (data.roe_history || []).forEach(r => {
+    if (r.date) roeMap.set(r.date, r.roe);
+  });
+  const sortedRoeDates = Array.from(roeMap.keys()).sort();
+
+  const roeList = [];
+  for (const d of dateList) {
+    let matchedRoe = roeMap.get(d);
+    if (matchedRoe === undefined) {
+      for (let i = sortedRoeDates.length - 1; i >= 0; i--) {
+        if (sortedRoeDates[i] <= d) {
+          matchedRoe = roeMap.get(sortedRoeDates[i]);
+          break;
+        }
+      }
+    }
+    roeList.push(matchedRoe !== undefined && matchedRoe !== null ? matchedRoe : null);
+  }
+
+  // 5. 配置坐标轴与图表序列
+  let yAxisConfig = [];
+  let seriesConfig = [];
+
+  // 半透明股票走势线定义 (优雅的现代金融半透明渐变蓝)
+  const priceSeriesDef = {
+    name: '自上市至今走势',
+    type: 'line',
+    yAxisIndex: 0,
+    data: priceList,
+    smooth: 0.15,
+    showSymbol: false,
+    lineStyle: {
+      color: 'rgba(37, 99, 235, 0.85)',
+      width: 2.2
+    },
+    areaStyle: {
+      color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+        { offset: 0, color: 'rgba(37, 99, 235, 0.35)' },
+        { offset: 0.75, color: 'rgba(37, 99, 235, 0.08)' },
+        { offset: 1, color: 'rgba(37, 99, 235, 0.01)' }
+      ])
+    }
+  };
+
+  const pbSeriesDef = {
+    name: '市净率 PB',
+    type: 'line',
+    yAxisIndex: (mode === 'all' ? 1 : (mode === 'valuation' ? 0 : 1)),
+    data: pbList,
+    smooth: 0.2,
+    showSymbol: false,
+    lineStyle: {
+      color: '#d97706',
+      width: 2
+    }
+  };
+
+  const peSeriesDef = {
+    name: '市盈率 PE',
+    type: 'line',
+    yAxisIndex: (mode === 'all' ? 1 : (mode === 'valuation' ? 1 : 1)),
+    data: peList,
+    smooth: 0.2,
+    showSymbol: false,
+    lineStyle: {
+      color: '#0284c7',
+      width: 2
+    }
+  };
+
+  const roeSeriesDef = {
+    name: '净资产收益率 ROE',
+    type: 'line',
+    yAxisIndex: (mode === 'all' ? 2 : 0),
+    data: roeList,
+    step: 'end',
+    showSymbol: true,
+    symbolSize: 4,
+    itemStyle: { color: '#7c3aed' },
+    lineStyle: {
+      color: '#7c3aed',
+      width: 2
+    }
+  };
+
+  if (mode === 'all') {
+    yAxisConfig = [
+      {
+        type: 'value',
+        name: '走势(元)',
+        position: 'left',
+        scale: true,
+        splitLine: { lineStyle: { color: '#f1f5f9' } },
+        axisLabel: { color: '#2563eb', fontSize: 10 },
+        axisLine: { show: true, lineStyle: { color: 'rgba(37, 99, 235, 0.3)' } }
+      },
+      {
+        type: 'value',
+        name: '估值倍数(PB/PE)',
+        position: 'right',
+        scale: true,
+        splitLine: { show: false },
+        axisLabel: { color: '#d97706', fontSize: 10 },
+        axisLine: { show: true, lineStyle: { color: '#cbd5e1' } }
+      },
+      {
+        type: 'value',
+        name: 'ROE(%)',
+        position: 'right',
+        offset: 54,
+        scale: true,
+        splitLine: { show: false },
+        axisLabel: { color: '#7c3aed', fontSize: 10, formatter: '{value}%' },
+        axisLine: { show: true, lineStyle: { color: '#7c3aed' } }
+      }
+    ];
+    seriesConfig = [priceSeriesDef, pbSeriesDef, peSeriesDef, roeSeriesDef];
+  } else if (mode === 'price') {
+    yAxisConfig = [{
+      type: 'value',
+      name: '走势(元)',
+      position: 'left',
+      scale: true,
+      splitLine: { lineStyle: { color: '#f1f5f9' } },
+      axisLabel: { color: '#2563eb', fontSize: 11 },
+      axisLine: { show: true, lineStyle: { color: '#2563eb' } }
+    }];
+    seriesConfig = [priceSeriesDef];
+  } else if (mode === 'valuation') {
+    yAxisConfig = [
+      {
+        type: 'value',
+        name: '市净率 PB',
+        position: 'left',
+        scale: true,
+        splitLine: { lineStyle: { color: '#f1f5f9' } },
+        axisLabel: { color: '#d97706', fontSize: 11 },
+        axisLine: { show: true, lineStyle: { color: '#d97706' } }
+      },
+      {
+        type: 'value',
+        name: '市盈率 PE',
+        position: 'right',
+        scale: true,
+        splitLine: { show: false },
+        axisLabel: { color: '#0284c7', fontSize: 11 },
+        axisLine: { show: true, lineStyle: { color: '#0284c7' } }
+      }
+    ];
+    seriesConfig = [pbSeriesDef, peSeriesDef];
+  } else if (mode === 'roe') {
+    yAxisConfig = [{
+      type: 'value',
+      name: '净资产收益率 ROE (%)',
+      position: 'left',
+      scale: true,
+      splitLine: { lineStyle: { color: '#f1f5f9' } },
+      axisLabel: { color: '#7c3aed', fontSize: 11, formatter: '{value}%' },
+      axisLine: { show: true, lineStyle: { color: '#7c3aed' } }
+    }];
+    seriesConfig = [roeSeriesDef];
+  }
+
+  const option = {
+    animationDuration: 350,
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: {
+        type: 'cross',
+        lineStyle: { color: '#94a3b8', type: 'dashed' }
+      },
+      backgroundColor: 'rgba(255, 255, 255, 0.96)',
+      borderColor: '#cbd5e1',
+      borderWidth: 1,
+      padding: [8, 12],
+      textStyle: { color: '#0f172a' },
+      extraCssText: 'box-shadow: 0 4px 14px rgba(15, 23, 42, 0.12); border-radius: 6px;',
+      formatter: function(params) {
+        if (!params || !params.length) return '';
+        const dStr = params[0].axisValue;
+        let html = `<div style="font-size:12px; font-weight:700; margin-bottom:6px; color:#0f172a; border-bottom:1px solid #e2e8f0; padding-bottom:4px;">📅 ${dStr}</div>`;
+        params.forEach(p => {
+          if (p.value !== null && p.value !== undefined) {
+            let valStr = p.value;
+            if (p.seriesName.includes('走势') || p.seriesName.includes('价格')) {
+              valStr = `¥ ${Number(p.value).toFixed(2)}`;
+            } else if (p.seriesName.includes('ROE')) {
+              valStr = `${Number(p.value).toFixed(2)}%`;
+            } else {
+              valStr = Number(p.value).toFixed(2);
+            }
+            html += `<div style="display:flex; justify-content:space-between; gap:16px; margin:3px 0; font-size:11px;">
+              <span style="color:#64748b;">${p.marker} ${p.seriesName}</span>
+              <span style="font-weight:700; font-family:monospace; color:#0f172a;">${valStr}</span>
+            </div>`;
+          }
+        });
+        return html;
+      }
+    },
+    grid: {
+      left: 45,
+      right: mode === 'all' ? 88 : 45,
+      top: 32,
+      bottom: 45
+    },
+    xAxis: {
+      type: 'category',
+      data: dateList,
+      boundaryGap: false,
+      axisLine: { lineStyle: { color: '#cbd5e1' } },
+      axisLabel: { color: '#64748b', fontSize: 10 },
+      splitLine: { show: false }
+    },
+    yAxis: yAxisConfig,
+    dataZoom: [
+      {
+        type: 'inside',
+        start: 0,
+        end: 100
+      },
+      {
+        type: 'slider',
+        height: 18,
+        bottom: 8,
+        borderColor: '#e2e8f0',
+        fillerColor: 'rgba(37, 99, 235, 0.12)',
+        handleSize: '100%',
+        showDetail: false
+      }
+    ],
+    series: seriesConfig
+  };
+
+  state.chartInstance.setOption(option, true);
+  state.chartInstance.resize();
 }
 
 // ==========================================
@@ -1764,13 +2224,7 @@ window.toggleStockEnabled = async function(code, enabled) {
   }
 };
 
-window.openThresholdModal = function(code, currentTh) {
-  openThresholdModal(code, currentTh);
-};
-
-window.openDrawer = function(code) {
-  openDrawer(code);
-};
+// Note: window.openThresholdModal and window.openDrawer are directly bound at definition
 
 window.deleteStock = async function(code, name) {
   if (!confirm(`确定要从监控池中移除 [${code}] ${name} 吗？`)) return;

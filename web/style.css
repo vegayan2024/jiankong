@@ -1387,15 +1387,21 @@ body {
   top: 0;
   right: 0;
   bottom: 0;
-  width: 440px;
-  max-width: 90vw;
+  width: 780px;
+  max-width: 95vw;
   background: #ffffff;
   border-left: 1px solid var(--border-medium);
   box-shadow: -5px 0 25px rgba(15, 23, 42, 0.12);
   display: flex;
   flex-direction: column;
   z-index: 95;
+  transition: width 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   animation: drawer-slide 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.drawer-window.is-expanded {
+  width: 1140px;
+  max-width: 98vw;
 }
 
 @keyframes drawer-slide {
@@ -1411,6 +1417,254 @@ body {
   flex-direction: column;
   gap: 18px;
 }
+
+/* ========================================================
+   个股历史走势线、PB、PE与ROE全景可视化卡片与工具栏
+   ======================================================== */
+.chart-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: #ffffff;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 14px;
+  box-shadow: var(--shadow-sm);
+}
+
+.chart-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chart-section-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.chart-hud-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+@media (max-width: 768px) {
+  .chart-hud-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.chart-hud-card {
+  background: #f8fafc;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  position: relative;
+  overflow: hidden;
+}
+
+.chart-hud-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 3px;
+}
+
+.chart-hud-card.hud-price::before { background: #2563eb; }
+.chart-hud-card.hud-pb::before { background: #d97706; }
+.chart-hud-card.hud-pe::before { background: #0284c7; }
+.chart-hud-card.hud-roe::before { background: #7c3aed; }
+
+.hud-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.hud-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.hud-badge {
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-weight: 600;
+}
+
+.hud-val {
+  font-family: var(--font-mono);
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--text-main);
+  line-height: 1.2;
+}
+
+.hud-sub {
+  font-size: 10px;
+  color: var(--text-dim);
+  display: flex;
+  justify-content: space-between;
+}
+
+.chart-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.chart-tabs-group, .chart-range-group {
+  display: inline-flex;
+  background: #f1f5f9;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 2px;
+  gap: 2px;
+}
+
+.chart-ctrl-btn {
+  border: none;
+  background: transparent;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.chart-ctrl-btn:hover {
+  color: var(--text-main);
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.chart-ctrl-btn.active {
+  background: #ffffff;
+  color: var(--accent-blue);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+  font-weight: 700;
+}
+
+.chart-canvas-box {
+  width: 100%;
+  height: 380px;
+  background: #ffffff;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  position: relative;
+  overflow: hidden;
+}
+
+.drawer-window.is-expanded .chart-canvas-box {
+  height: 440px;
+}
+
+.chart-canvas-el {
+  width: 100%;
+  height: 100%;
+}
+
+.chart-loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(2px);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  z-index: 10;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.chart-spinner {
+  width: 24px;
+  height: 24px;
+  border: 3px solid #e2e8f0;
+  border-top-color: var(--accent-blue);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.chart-legend-banner {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  font-size: 11px;
+  color: var(--text-muted);
+  padding: 6px 10px;
+  background: #f8fafc;
+  border-radius: var(--radius-sm);
+  border: 1px dashed var(--border-subtle);
+}
+
+.legend-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 600;
+}
+
+.legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.legend-dot.dot-price {
+  background: rgba(37, 99, 235, 0.7);
+  box-shadow: 0 0 4px rgba(37, 99, 235, 0.5);
+}
+.legend-dot.dot-pb { background: #d97706; }
+.legend-dot.dot-pe { background: #0284c7; }
+.legend-dot.dot-roe { background: #7c3aed; }
+
+.expand-btn {
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-size: 12px;
+  padding: 4px 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.15s ease;
+}
+
+.expand-btn:hover {
+  background: #f1f5f9;
+  color: var(--text-main);
+  border-color: var(--border-medium);
+}
+
 
 .spec-grid {
   display: grid;
