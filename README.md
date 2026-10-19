@@ -102,7 +102,8 @@ python scripts/web_server.py
 | 路由 | 方法 | 功能描述 |
 | :--- | :---: | :--- |
 | `/api/quotes` | GET | 获取全监控池资产的最新实时行情、涨跌幅、最高最低与均幅 |
-| `/api/themes/summary` | GET | 获取同花顺问财口径最近一周热点题材、风格、概念全景及头部公司实时数据 |
+| `/api/themes/summary` | GET | 获取热点题材、风格、概念全景知识库及头部龙头实时盘口与时效指标 |
+| `/api/themes/refresh` | POST | 触发风格题材真实周度表现、资金流向与问财热度重新计算并同步监控池 |
 | `/api/alerts` | GET | 获取最新异动触发警报列表 |
 | `/api/announcements` | GET | 获取自选标的巨潮官方信息披露公告流 |
 | `/api/news` | GET | 获取 7x24 全球财经快讯 (含命中自选池标注) |
@@ -111,6 +112,17 @@ python scripts/web_server.py
 | `/api/watchlist/{code}` | DELETE | 从监控池中移除指定标的 |
 | `/api/watchlist/{code}` | PATCH | 修改指定标的的预警阈值、分组或启停状态 |
 | `/ws/live` | WebSocket | 高频价格 Tick 与状态广播实时长连接 |
+
+---
+
+## 🛠️ 风格题材时效更新与维护
+
+系统内置了风格题材时效情报智能更新模块：
+```bash
+# 周期性一键刷新 13 大风格题材的真实 5 日/周度表现、资金流向与热度星级，并自动双向同步自选监控池：
+python scripts/update_themes_intel.py
+```
+或直接在 Web 前端界面点击 **「🔥 问财热点」** 栏目右上角的 **「🔄 刷新指标」** 按钮，后端将自动完成异步多线程计算并即时生效。
 
 ---
 

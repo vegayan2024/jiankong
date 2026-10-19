@@ -672,302 +672,40 @@ async def refresh_industry_intel():
 
 
 # ==============================================================================
-# 同花顺问财 (iwencai.com) 标准：最近一周热点题材、风格、概念全景知识库
+# 同花顺问财 (iwencai.com) 标准：风格题材全景知识库与动态加载机制
 # ==============================================================================
-THEME_KNOWLEDGE_BASE = [
-    {
-        "id": "theme-ai-corpus",
-        "name": "AI语料与多模态应用",
-        "category": "泛科技 · 数据要素 · 大模型",
-        "group": "风格:AI语料与应用",
-        "hot_level": "★★★★★",
-        "fund_flow": "+14.8亿 净流入",
-        "week_perf": "+9.62%",
-        "driver_info": "多模态大模型(如Sora/GPT-4o/Claude 3.7)高频迭代演进，推理侧长文本与图生视频对高质量版权语料库需求爆发式增长，国家数据要素X战略落地催化数字内容版权价值重估。",
-        "catalyst": "大模型推理升级与模型内嵌多模态推理，头部大厂密集采买出版与图文正版语料",
-        "top_stocks": [
-            {
-                "code": "600825.SH",
-                "name": "新华传媒",
-                "role": "龙一 · 国资版权语料领航者",
-                "desc": "上海报业集团旗下唯一上市公司，垄断性拥有海量权威合规出版与主流媒体版权数据，深度与国内前列大模型企业签署语料采买战略合作。"
-            },
-            {
-                "code": "603533.SH",
-                "name": "掌阅科技",
-                "role": "龙二 · 网文IP与长文本数据龙头",
-                "desc": "国内数字阅读头部平台，坐拥数十万册正版网文与原创IP，全面接入MiniMax、月之暗面(Kimi)大模型生态，AI漫剧与语料出海变现加速。"
-            }
-        ]
-    },
-    {
-        "id": "theme-solid-battery",
-        "name": "固态电池与新型储能",
-        "category": "新质生产力 · 固态电池 · 新材料",
-        "group": "风格:固态电池与新材料",
-        "hot_level": "★★★★★",
-        "fund_flow": "+21.5亿 净流入",
-        "week_perf": "+11.45%",
-        "driver_info": "七部门联合印发新型电池产业高质量发展规划，全固态电池中试线与千公里级装车实验频传捷报，固态电解质、硅碳负极与高精度真空镀膜涂布装备需求放量。",
-        "catalyst": "工信部高能量密度电池试点推进，全固态电芯中试线点火投产",
-        "top_stocks": [
-            {
-                "code": "300438.SZ",
-                "name": "鹏辉能源",
-                "role": "龙一 · 全固态电芯领航者",
-                "desc": "率先发布无机固体电解质全固态电池，能量密度达280Wh/kg以上且针刺不起火，中试线投产与产业化进度行业领跑。"
-            },
-            {
-                "code": "603396.SH",
-                "name": "金辰股份",
-                "role": "龙二 · 固态电芯真空装备龙头",
-                "desc": "光伏与锂电真空装备专家，攻克固态电池干法电极及高压实真空等静压设备关键技术，深度切入一线电池厂商装备供应链。"
-            }
-        ]
-    },
-    {
-        "id": "theme-advanced-packaging",
-        "name": "先进封装与半导体材料",
-        "category": "半导体 · 玻璃基板 · Chiplet",
-        "group": "风格:先进封装与半导体",
-        "hot_level": "★★★★★",
-        "fund_flow": "+19.2亿 净流入",
-        "week_perf": "+8.30%",
-        "driver_info": "AI高算力芯片突破摩尔定律物理极限，英伟达与台积电全面加码玻璃基板与2.5D/3D Chiplet先进封装，高密度蚀刻引线框架与封测产能全面告急。",
-        "catalyst": "玻璃基板成为下一代算力芯片载体主流共识，先进封装产能持续饱满",
-        "top_stocks": [
-            {
-                "code": "002156.SZ",
-                "name": "通富微电",
-                "role": "龙一 · 全球顶尖先进封测巨头",
-                "desc": "全球封测行业前四强，深度绑定AMD CPU/GPU核心封装，国内首屈一指具备大面积高密度Chiplet和超高算力倒装量产能力。"
-            },
-            {
-                "code": "002119.SZ",
-                "name": "康强电子",
-                "role": "龙二 · 半导体引线框架龙头",
-                "desc": "国内半导体引线框架与键合丝行业隐形冠军，高密度蚀刻型引线框架全面适配先进封装，市占率连续多年位居全国第一。"
-            }
-        ]
-    },
-    {
-        "id": "theme-commercial-space",
-        "name": "商业航天与空间卫星",
-        "category": "低轨卫星 · 航天强国 · 军民融合",
-        "group": "风格:商业航天与卫星",
-        "hot_level": "★★★★☆",
-        "fund_flow": "+12.3亿 净流入",
-        "week_perf": "+7.15%",
-        "driver_info": "千帆低轨通信星座开启大规模高密度组网发射，空间站货物运输与低成本可重复使用火箭竞标落地，星载激光通信与星上处理载荷迎来批量交付潮。",
-        "catalyst": "中国星网与千帆星座百星连发计划加速，可重复使用运载火箭测试提速",
-        "top_stocks": [
-            {
-                "code": "600879.SH",
-                "name": "航天电子",
-                "role": "龙一 · 星载测控与电子系统核心主导",
-                "desc": "航天九院旗下核心上市旗舰，垄断性承揽国家卫星导航、空间通信遥测、星间微波链路与宇航级连接器，纯正航天总装配套标的。"
-            },
-            {
-                "code": "601698.SH",
-                "name": "中国卫通",
-                "role": "龙二 · 卫星空间通信运营国家队",
-                "desc": "我国唯一拥有自主可控商用通信广播卫星资源的卫星通信运营企业，独占核心优质轨道与Ka高频段空间频谱资源。"
-            }
-        ]
-    },
-    {
-        "id": "theme-cross-border-ip",
-        "name": "跨境电商与IP潮玩经济",
-        "category": "消费出海 · 谷子经济 · 新零售",
-        "group": "风格:跨境电商与IP经济",
-        "hot_level": "★★★★☆",
-        "fund_flow": "+10.7亿 净流入",
-        "week_perf": "+6.85%",
-        "driver_info": "跨境电商出海保持双位数高增，海外假日备货周期启动，同时二次元谷子经济与国潮IP出海呈现爆发式增长，数字化供应链与自主支付赋能显著。",
-        "catalyst": "中东及拉美新兴市场订单倍增，谷子经济IP衍生品全球爆发",
-        "top_stocks": [
-            {
-                "code": "600415.SH",
-                "name": "小商品城",
-                "role": "龙一 · 全球小商品实体与数字出海枢纽",
-                "desc": "义乌全球商贸旗舰，Chinagoods平台与Yiwu Pay跨境支付牌照覆盖150+国家，二次元文创谷子出海集散策源地。"
-            },
-            {
-                "code": "002614.SZ",
-                "name": "奥佳华",
-                "role": "龙二 · 跨境自主品牌出口领军者",
-                "desc": "智能健康硬件全球品牌矩阵，自主品牌畅销欧美与亚太60多个国家，跨境电商直销平台持续高速增长。"
-            }
-        ]
-    },
-    {
-        "id": "theme-indep-compute",
-        "name": "自主算力与国产芯片底座",
-        "category": "国产替代 · AI算力 · 晶圆代工",
-        "group": "风格:自主算力芯片",
-        "hot_level": "★★★★★",
-        "fund_flow": "+28.9亿 净流入",
-        "week_perf": "+12.18%",
-        "driver_info": "外部出口管制加码背景下，国内智算中心与政企大模型全面转向自主可控底层算力生态，本土GPU架构演进与先进制程代工产能利用率持续打满。",
-        "catalyst": "智算基础设施自主化采购比例大幅提高，国产大模型软硬件适配成熟",
-        "top_stocks": [
-            {
-                "code": "688256.SH",
-                "name": "寒武纪",
-                "role": "龙一 · 通用AI算力芯片第一梯队",
-                "desc": "国内云端训练与推理GPU核心开拓者，思元系列芯片深度适配大模型推理全栈生态，深入支撑国家级智算中心标杆项目。"
-            },
-            {
-                "code": "688981.SH",
-                "name": "中芯国际",
-                "role": "龙二 · 高阶制程晶圆代工中流砥柱",
-                "desc": "中国大陆技术最先进、配套最完善的晶圆代工巨头，承载国内先进逻辑制程与自研算力芯片流片量产的战略底座。"
-            }
-        ]
-    },
-    {
-        "id": "theme-cpo-optics",
-        "name": "算力光模块与CPO高速互联",
-        "category": "算力底座 · 光通信 · 高速连接",
-        "group": "风格:算力光模块",
-        "hot_level": "★★★★★",
-        "fund_flow": "+26.4亿 净流入",
-        "week_perf": "+10.90%",
-        "driver_info": "AI超大规模集群训练促使光模块从800G加速向1.6T演进，功耗与延迟严苛要求推动CPO及硅光方案成为全球头部CSP云厂商标准标配，业绩持续高兑现。",
-        "catalyst": "北美CSP云巨头资本开支上调，1.6T光模块与硅光芯片量产出货",
-        "top_stocks": [
-            {
-                "code": "300308.SZ",
-                "name": "中际旭创",
-                "role": "龙一 · 全球光模块出货量与技术双冠王",
-                "desc": "在北美主流云厂商中份额绝对领先，800G/1.6T高端光模块研发与良率全球领跑，AI算力基础设施核心业绩受益标的。"
-            },
-            {
-                "code": "300502.SZ",
-                "name": "新易盛",
-                "role": "龙二 · 高速光互联高弹性领头羊",
-                "desc": "海外市场拓展极其亮眼，800G LPO及线性直驱方案具备显著成本与功耗优势，硅光芯片整合能力位居国内第一梯队。"
-            }
-        ]
-    },
-    {
-        "id": "theme-humanoid-robot",
-        "name": "具身智能与人形机器人",
-        "category": "新质生产力 · 具身智能 · 工业机器人",
-        "group": "风格:人形机器人",
-        "hot_level": "★★★★☆",
-        "fund_flow": "+13.1亿 净流入",
-        "week_perf": "+7.80%",
-        "driver_info": "国内外头部科技巨头量产定型在即，本体运控算法与灵巧手、减速器、力矩传感器等核心硬件供应链迎来Tier 1定点潮与试产测试。",
-        "catalyst": "头部车企与科技巨头公布人形机器人实训视频，核心零部件供应链量产前夜",
-        "top_stocks": [
-            {
-                "code": "002050.SZ",
-                "name": "三花智控",
-                "role": "龙一 · 人形机器人执行器总成核心供应商",
-                "desc": "全球热管理与微通道核心龙头，依托精密机电制造积淀全面承接头部人形机器人旋转与直线执行器总成总包研发与规模量产。"
-            },
-            {
-                "code": "688017.SH",
-                "name": "绿的谐波",
-                "role": "龙二 · 高精密谐波减速器破壁者",
-                "desc": "国内谐波减速器市占率稳居第一，技术指标全面媲美日本哈默纳科，为人形机器人高承载、高灵敏关节提供不可替代的传动部件。"
-            }
-        ]
-    },
-    {
-        "id": "theme-low-altitude",
-        "name": "低空经济与eVTOL飞行器",
-        "category": "空天科技 · 新型交通 · 新质基建",
-        "group": "风格:低空经济",
-        "hot_level": "★★★★☆",
-        "fund_flow": "+11.6亿 净流入",
-        "week_perf": "+6.40%",
-        "driver_info": "全国首批低空飞行服务保障体系与适航认证标准加速出台，无人机物流与文旅观光、城际空中接驳航线常态化落地，带动空域管理与整机部件高景气。",
-        "catalyst": "多省市空域管理改革细则发布，城际eVTOL接驳常态化航线开通",
-        "top_stocks": [
-            {
-                "code": "002085.SZ",
-                "name": "万丰奥威",
-                "role": "龙一 · 轻量化机身与eVTOL整机先锋",
-                "desc": "旗下钻石飞机拥有成熟通航整机设计制造体系，携手全球头部车企推进eVTOL整机适航取证，轻量化镁铝合金材料全球市占率领先。"
-            },
-            {
-                "code": "000099.SZ",
-                "name": "中信海直",
-                "role": "龙二 · 国内通用航空与低空运营国家队",
-                "desc": "国内规模最大的通航直升机运营企业，全面布局大湾区等城市空中交通(UAM)网络，低空空域商业化飞行小时数行业第一。"
-            }
-        ]
-    },
-    {
-        "id": "theme-biopharma-export",
-        "name": "创新药出海与GLP-1生物科技",
-        "category": "生物医药 · 出海授权 · 减重降糖",
-        "group": "风格:创新药出海",
-        "hot_level": "★★★☆☆",
-        "fund_flow": "+8.9亿 净流入",
-        "week_perf": "+4.95%",
-        "driver_info": "国内创新药企对外授权(License-out)交易额屡创历史新高，ADC抗体偶联药物与双抗在全球主流肿瘤学大会崭露头角，GLP-1多靶点减重降糖管线商业化预期强烈。",
-        "catalyst": "重磅创新药全球三期临床达到终点，跨国巨头巨额授权预付款落地",
-        "top_stocks": [
-            {
-                "code": "688235.SH",
-                "name": "百济神州",
-                "role": "龙一 · 全球化商业化创新药旗舰",
-                "desc": "核心重磅BTK抑制剂百悦泽全球销售额突破十亿美元大关，PD-1获FDA批准，是国内首屈一指具备全球多中心自建销售体系的创新药巨擘。"
-            },
-            {
-                "code": "01801.HK",
-                "name": "信达生物",
-                "role": "龙二 · 双抗与代谢减重多靶点先锋",
-                "desc": "GLP-1R/GCGR双重激动剂玛仕度肽国内减重和降糖适应症推进迅猛，抗肿瘤双抗管线海外权益授权获跨国巨头大额里程碑付款。"
-            }
-        ]
-    },
-    {
-        "id": "theme-precious-metals",
-        "name": "战略大宗与贵金属周期",
-        "category": "大宗商品 · 避险资产 · 资源壁垒",
-        "group": "风格:战略贵金属",
-        "hot_level": "★★★★☆",
-        "fund_flow": "+17.5亿 净流入",
-        "week_perf": "+8.10%",
-        "driver_info": "全球央行购金需求持续高位，地缘避险与美联储降息周期交织推动贵金属与战略矿产估值中枢抬升，铜金等高品位矿山资源稀缺性凸显。",
-        "catalyst": "国际黄金现货与伦敦铜震荡走高，全球优质矿产资源兼并重组加速",
-        "top_stocks": [
-            {
-                "code": "601899.SH",
-                "name": "紫金矿业",
-                "role": "龙一 · 全球有色与贵金属资源跨国巨头",
-                "desc": "铜、金资源储量与产量国内第一，海外大型卡莫阿铜矿与巨龙铜矿改扩建持续贡献充沛现金流，低成本逆周期并购能力全球瞩目。"
-            },
-            {
-                "code": "600547.SH",
-                "name": "山东黄金",
-                "role": "龙二 · 黄金采选与资源整合绝对主力",
-                "desc": "纯正黄金采掘旗舰，坐拥焦家、三山岛等世界级黄金生产基地，海外加纳等项目注入增厚资源储备，深度受益金价上行周期。"
-            }
-        ]
-    }
-]
+THEMES_KNOWLEDGE_BASE_FILE = JIANKONG_DIR / "themes_knowledge_base.json"
+
+
+def load_themes_knowledge_base() -> List[Dict[str, Any]]:
+    """优先从 themes_knowledge_base.json 载入最新全景题材，若异常则安全返回空列表"""
+    if THEMES_KNOWLEDGE_BASE_FILE.exists():
+        try:
+            with open(THEMES_KNOWLEDGE_BASE_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                if isinstance(data, list) and len(data) > 0:
+                    return data
+        except Exception as e:
+            logger.warning(f"读取题材库 {THEMES_KNOWLEDGE_BASE_FILE} 异常: {e}")
+    return []
 
 
 @app.get("/api/themes/summary")
 async def get_themes_summary():
-    """获取最近一周热点题材、风格、概念全景数据 (同花顺问财口径，联动实时行情)"""
+    """获取热点题材、风格、概念全景数据 (同花顺问财口径，联动实时行情与时效指标)"""
+    themes = load_themes_knowledge_base()
     result = []
-    for item in THEME_KNOWLEDGE_BASE:
+    for item in themes:
         t_copy = dict(item)
         top_stocks_with_quotes = []
-        for s in item["top_stocks"]:
-            code = s["code"]
+        for s in item.get("top_stocks", []):
+            code = s.get("code", "")
             q = cached_quotes.get(code, {})
             top_stocks_with_quotes.append({
                 "code": code,
-                "name": s["name"],
-                "role": s["role"],
-                "desc": s["desc"],
+                "name": s.get("name", ""),
+                "role": s.get("role", ""),
+                "desc": s.get("desc", ""),
                 "price": q.get("price", 0.0),
                 "pct_change": q.get("pct_change", 0.0),
                 "market": q.get("market", ""),
@@ -979,6 +717,28 @@ async def get_themes_summary():
         t_copy["realtime_avg_pct"] = round(sum(valid_pcts) / len(valid_pcts), 2) if valid_pcts else 0.0
         result.append(t_copy)
     return {"status": "success", "total": len(result), "data": result}
+
+
+@app.post("/api/themes/refresh")
+async def refresh_themes_summary():
+    """触发风格题材时效指标重新计算与知识库刷新"""
+    try:
+        from scripts.update_themes_intel import run_theme_intel_update
+        res = await asyncio.to_thread(run_theme_intel_update, True)
+        # 刷新完成后触发一次批量行情拉取
+        await asyncio.to_thread(fetch_batch_quotes)
+        return {
+            "status": "success",
+            "message": "风格题材时效指标及标的池已完成智能刷新",
+            "data": res
+        }
+    except Exception as e:
+        logger.error(f"刷新风格题材时效指标异常: {e}", exc_info=True)
+        return {
+            "status": "error",
+            "message": f"刷新失败: {str(e)}",
+            "data": None
+        }
 
 
 @app.get("/api/macro/compass")

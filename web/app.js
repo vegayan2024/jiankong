@@ -1461,6 +1461,8 @@ function getGroupPriority(g) {
   if (g.startsWith('热点ETF:')) return 2;
   if (g.startsWith('风格:')) {
     const hotThemes = [
+      '风格:并购重组与化债',
+      '风格:鸿蒙与智能驾驶',
       '风格:AI语料与应用',
       '风格:算力光模块',
       '风格:先进封装与半导体',
@@ -1505,12 +1507,44 @@ async function fetchThemesSummary() {
     const res = await resp.json();
     if (res.status === 'success') {
       state.themesSummary = res.data || [];
+      const countTag = document.getElementById('theme-count-tag');
+      if (countTag && state.themesSummary.length) {
+        countTag.textContent = `${state.themesSummary.length} 大核心主线`;
+      }
       renderThemeInsight();
     }
   } catch (err) {
     console.warn('获取题材全景数据失败:', err);
   }
 }
+
+window.refreshThemeInsight = async function() {
+  const btn = document.getElementById('btn-refresh-themes');
+  const origText = btn ? btn.textContent : '';
+  try {
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = '⏳ 正在计算指标...';
+    }
+    const resp = await fetch('/api/themes/refresh', { method: 'POST' });
+    const res = await resp.json();
+    if (res.status === 'success') {
+      showToast('🎉 风格题材时效指标与标的池已刷新完成', 'success');
+      await fetchThemesSummary();
+      await refreshData();
+    } else {
+      showToast(`⚠️ 刷新提示: ${res.message || '未知错误'}`, 'warning');
+    }
+  } catch (err) {
+    console.error('刷新题材情报失败:', err);
+    showToast('❌ 刷新题材指标网络请求异常', 'error');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = origText || '🔄 刷新指标';
+    }
+  }
+};
 
 function renderThemeInsight() {
   const grid = el.themeInsightGrid;
@@ -1556,6 +1590,7 @@ function renderThemeInsight() {
             <div class="theme-meta-row">
               <span class="theme-hot-tag">问财热度 ${t.hot_level}</span>
               <span class="theme-flow-tag">${t.fund_flow}</span>
+              ${t.week_perf ? `<span class="theme-flow-tag" title="5日区间真实表现">周表现: ${t.week_perf}</span>` : ''}
               <span class="theme-rt-avg ${avgClass}">实时均幅: ${avgSign}${avgPct.toFixed(2)}%</span>
             </div>
           </div>

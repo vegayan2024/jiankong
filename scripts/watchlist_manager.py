@@ -339,6 +339,22 @@ def initialize_full_jiankong_pool(manager: WatchlistManager):
     for code, name, grp, th in trending_etfs:
         manager.add(code, name=name, group=grp, threshold=th, asset_type="etf")
 
+    # 4. 注入风格题材高波动领衔龙头 (来自 themes_knowledge_base.json)
+    themes_file = JIANKONG_DIR / "themes_knowledge_base.json"
+    if themes_file.exists():
+        try:
+            themes_data = json.loads(themes_file.read_text(encoding="utf-8"))
+            for t in themes_data:
+                grp = t.get("group", "风格题材")
+                for s in t.get("top_stocks", []):
+                    code = s.get("code")
+                    name = s.get("name")
+                    if code:
+                        manager.add(code, name=name, group=grp, threshold=4.5, asset_type="stock")
+            print(f"• 已从题材全景库注入 {len(themes_data)} 大风格题材标的")
+        except Exception as e:
+            print(f"• 注入题材标的异常: {e}")
+
     stats = manager.get_stats()
     print(f"\n========================================================")
     print(f"🎉 监控池全部构建完成！总标的数: {stats['total']} 家/只")

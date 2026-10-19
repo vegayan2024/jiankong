@@ -406,6 +406,20 @@
     "added_at": "2026-09-29 13:26:35"
   },
   {
+    "code": "601127.SH",
+    "symbol": "601127",
+    "market": "SH",
+    "name": "赛力斯",
+    "group": "风格:鸿蒙与智能驾驶",
+    "asset_type": "stock",
+    "enabled": true,
+    "alert_threshold_pct": 4.5,
+    "monitor_announcement": true,
+    "monitor_intraday": true,
+    "monitor_news": true,
+    "added_at": "2026-10-19 11:47:39"
+  },
+  {
     "code": "601698.SH",
     "symbol": "601698",
     "market": "SH",
@@ -532,6 +546,20 @@
     "asset_type": "stock"
   },
   {
+    "code": "000567.SZ",
+    "symbol": "000567",
+    "market": "SZ",
+    "name": "海德股份",
+    "group": "风格:并购重组与化债",
+    "asset_type": "stock",
+    "enabled": true,
+    "alert_threshold_pct": 4.5,
+    "monitor_announcement": true,
+    "monitor_intraday": true,
+    "monitor_news": true,
+    "added_at": "2026-10-19 11:47:39"
+  },
+  {
     "code": "002050.SZ",
     "symbol": "002050",
     "market": "SZ",
@@ -602,6 +630,20 @@
     "added_at": "2026-09-29 13:26:35"
   },
   {
+    "code": "002693.SZ",
+    "symbol": "002693",
+    "market": "SZ",
+    "name": "双成药业",
+    "group": "风格:并购重组与化债",
+    "asset_type": "stock",
+    "enabled": true,
+    "alert_threshold_pct": 4.5,
+    "monitor_announcement": true,
+    "monitor_intraday": true,
+    "monitor_news": true,
+    "added_at": "2026-10-19 11:47:39"
+  },
+  {
     "code": "300308.SZ",
     "symbol": "300308",
     "market": "SZ",
@@ -614,6 +656,20 @@
     "monitor_news": true,
     "added_at": "2026-09-28 14:48:30",
     "asset_type": "stock"
+  },
+  {
+    "code": "300339.SZ",
+    "symbol": "300339",
+    "market": "SZ",
+    "name": "润和软件",
+    "group": "风格:鸿蒙与智能驾驶",
+    "asset_type": "stock",
+    "enabled": true,
+    "alert_threshold_pct": 4.5,
+    "monitor_announcement": true,
+    "monitor_intraday": true,
+    "monitor_news": true,
+    "added_at": "2026-10-19 11:47:39"
   },
   {
     "code": "300438.SZ",

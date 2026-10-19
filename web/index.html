@@ -2600,7 +2600,7 @@ body {
         <div id="theme-insight-prompt-bar" class="theme-insight-prompt-bar" style="display: none;">
           <div class="prompt-bar-content" onclick="toggleThemeInsight(true)">
             <span class="prompt-icon">💡</span>
-            <span class="prompt-text">已汇聚<strong>最近一周 11 大热点题材·风格·概念全景</strong>及领衔头部公司（同花顺问财 iwencai.com 标准）</span>
+            <span class="prompt-text">已汇聚<strong>全景热点题材·风格·概念主线</strong>及领衔头部公司（同花顺问财 iwencai.com 标准）</span>
             <span class="prompt-action">点击展开洞察矩阵 ▾</span>
           </div>
         </div>
@@ -2611,15 +2611,16 @@ body {
             <div class="theme-banner-left">
               <span class="theme-banner-badge">🔥 问财热点</span>
               <span class="theme-banner-title">最近一周热点题材 · 风格 · 概念全景矩阵</span>
-              <span class="theme-banner-sub">权威借鉴同花顺 iwencai.com 概念库 · 11大核心主线领衔龙头深度透视 · 实时联动盘口</span>
+              <span class="theme-banner-sub">权威借鉴同花顺 iwencai.com 概念库 · 核心主线领衔龙头深度透视 · 实时联动盘口</span>
             </div>
             <div class="theme-banner-right">
-              <span class="theme-count-badge" id="theme-count-tag">11 大核心主线</span>
+              <span class="theme-count-badge" id="theme-count-tag">13 大核心主线</span>
+              <button id="btn-refresh-themes" class="theme-expand-btn" onclick="refreshThemeInsight()" title="刷新题材时效数据与区间表现" style="margin-right: 8px;">🔄 刷新指标</button>
               <button id="btn-toggle-insight-expand" class="theme-expand-btn">收起洞察 ▴</button>
             </div>
           </div>
           <div id="theme-insight-grid" class="theme-insight-grid">
-            <!-- 动态渲染 11 张精美题材洞察卡片 -->
+            <!-- 动态渲染精美题材洞察卡片 -->
           </div>
         </section>
 
