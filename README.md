@@ -126,6 +126,20 @@ python scripts/update_themes_intel.py
 
 ---
 
+## 🧩 本地工程技能库与 AI Agent 约束规范
+
+项目内 `.agents/skills` 与 `.claude/skills` 已配备专属开发与运维技能：
+- **`fastapi-templates`**：FastAPI 异步生命周期管理（Lifespan）、WebSocket 连接池保活心跳、异常熔断与多线程行情轮询解耦。
+- **`pydantic-models-py`**：规范 186+ 监控标的行情快照、异动预警结构体、AIHOT 行业要闻及巨潮公告的严格数据契约。
+- **`kpi-dashboard-design`**：优化泳道视图（同类型一排）、板块均幅实时动态着色、阈值告警触发及高频 DOM 渲染防抖。
+- **`pdf-official`**：配合 `cninfo_client.py`，实现巨潮法定公告 PDF 关键财务指标与业绩变动表格的本地极速抽取。
+- **`risk-metrics-calculation`**：单票与板块波动率、最大回撤、异动偏离度等风控指标计算。
+
+**全局网页交互自动化优先顺位**：第一顺位 `ego(lite)`，第二顺位 `huashu-chrome`。
+
+---
+
 ## 📄 开源与维护
 - GitHub 仓库：[https://github.com/vegayan2024/jiankong.git](https://github.com/vegayan2024/jiankong.git)
 - 本项目遵循严格的工程与代码完整性规范，所有后续更新均遵循 Conventional Commits 提交规范并同步推送到远程仓库。
+
