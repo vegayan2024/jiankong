@@ -1277,35 +1277,88 @@ function renderMacroCompass(data) {
 }
 
 // ==========================================
-// WebSocket Connection
+// WebSocket Connection (KPI Dashboard Design Spec)
 // ==========================================
+let wsHeartbeatTimer = null;
+let wsReconnectDelay = 1000;
+const WS_MAX_RECONNECT_DELAY = 15000;
+let pendingTickMsg = null;
+let tickRafId = null;
+
+function applyPendingTickUpdate() {
+  tickRafId = null;
+  if (!pendingTickMsg) return;
+  const msg = pendingTickMsg;
+  pendingTickMsg = null;
+
+  const wsDt = msg.datetime || (msg.date ? `${msg.date} ${msg.timestamp}` : msg.timestamp);
+  if (el.updateTimer) el.updateTimer.textContent = wsDt;
+  if (el.marketFullDatetime) el.marketFullDatetime.textContent = wsDt;
+  if (el.matrixTimeVal) el.matrixTimeVal.textContent = wsDt;
+  if (msg.macro_compass) {
+    renderMacroCompass(msg.macro_compass);
+  }
+}
+
 function setupWebSocket() {
+  if (state.ws && (state.ws.readyState === WebSocket.OPEN || state.ws.readyState === WebSocket.CONNECTING)) {
+    return;
+  }
+
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   const wsUrl = `${protocol}//${window.location.host}/ws/live`;
 
   try {
-    state.ws = new WebSocket(wsUrl);
-    state.ws.onmessage = (event) => {
+    const ws = new WebSocket(wsUrl);
+    state.ws = ws;
+
+    ws.onopen = () => {
+      wsReconnectDelay = 1000; // 重置退避延迟
+      if (wsHeartbeatTimer) clearInterval(wsHeartbeatTimer);
+      wsHeartbeatTimer = setInterval(() => {
+        if (ws.readyState === WebSocket.OPEN) {
+          try {
+            ws.send(JSON.stringify({ type: 'ping' }));
+          } catch (e) {}
+        }
+      }, 15000);
+    };
+
+    ws.onmessage = (event) => {
       try {
         const msg = JSON.parse(event.data);
+        if (msg.type === 'PONG') {
+          return;
+        }
         if (msg.type === 'TICK') {
-          const wsDt = msg.datetime || (msg.date ? `${msg.date} ${msg.timestamp}` : msg.timestamp);
-          if (el.updateTimer) el.updateTimer.textContent = wsDt;
-          if (el.marketFullDatetime) el.marketFullDatetime.textContent = wsDt;
-          if (el.matrixTimeVal) el.matrixTimeVal.textContent = wsDt;
-          if (msg.macro_compass) {
-            renderMacroCompass(msg.macro_compass);
+          pendingTickMsg = msg;
+          if (!tickRafId) {
+            tickRafId = requestAnimationFrame(applyPendingTickUpdate);
           }
         }
       } catch (e) {}
     };
-    state.ws.onclose = () => {
-      setTimeout(setupWebSocket, 5000);
+
+    ws.onclose = () => {
+      if (wsHeartbeatTimer) {
+        clearInterval(wsHeartbeatTimer);
+        wsHeartbeatTimer = null;
+      }
+      const nextDelay = wsReconnectDelay;
+      wsReconnectDelay = Math.min(wsReconnectDelay * 2, WS_MAX_RECONNECT_DELAY);
+      setTimeout(setupWebSocket, nextDelay);
+    };
+
+    ws.onerror = () => {
+      try {
+        ws.close();
+      } catch (e) {}
     };
   } catch (e) {
     console.warn('WebSocket 连接未建立，降级至 HTTP 轮询');
   }
 }
+
 
 // ==========================================
 // Filter & Sort Engine

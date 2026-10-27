@@ -57,6 +57,16 @@ from scripts.watchlist_manager import WatchlistManager, normalize_stock_code, fe
 from scripts.cninfo_client import cninfo_client
 from scripts.aihot_engine import aihot_engine
 from scripts.macro_compass import macro_compass
+from scripts.models import (
+    StockQuoteResponse,
+    WatchlistItemCreate,
+    WatchlistItemUpdate,
+    AlertItemResponse,
+    AnnouncementItemResponse,
+    NewsItemResponse,
+    TickBroadcastMessage,
+    StandardApiResponse,
+)
 
 # ==============================================================================
 # 高性能全局 HTTP 连接池与并发执行器 (大幅降低 TCP 握手开销与 I/O 阻塞)
@@ -91,23 +101,76 @@ price_history: Dict[str, List[Tuple[float, float]]] = {}
 
 
 class ConnectionManager:
+    """遵循 fastapi-templates 规范的高可用 WebSocket 连接管理器"""
     def __init__(self):
-        self.active_connections: List[WebSocket] = []
+        self.connections: Dict[WebSocket, Dict[str, Any]] = {}
+        self._lock = asyncio.Lock()
 
     async def connect(self, websocket: WebSocket):
         await websocket.accept()
-        self.active_connections.append(websocket)
+        now = time.time()
+        async with self._lock:
+            self.connections[websocket] = {
+                "connected_at": now,
+                "last_active": now,
+                "client": getattr(websocket, "client", None),
+            }
+        logger.info(f"WebSocket 客户端上线，当前存活连接数: {len(self.connections)}")
 
-    def disconnect(self, websocket: WebSocket):
-        if websocket in self.active_connections:
-            self.active_connections.remove(websocket)
+    async def disconnect(self, websocket: WebSocket):
+        async with self._lock:
+            if websocket in self.connections:
+                del self.connections[websocket]
+        try:
+            await websocket.close()
+        except Exception:
+            pass
+        logger.info(f"WebSocket 客户端下线，当前存活连接数: {len(self.connections)}")
+
+    async def record_heartbeat(self, websocket: WebSocket):
+        async with self._lock:
+            if websocket in self.connections:
+                self.connections[websocket]["last_active"] = time.time()
 
     async def broadcast(self, message: Dict[str, Any]):
-        for connection in list(self.active_connections):
+        """异步并发安全广播，自动剔除断开或超时的死连接"""
+        async with self._lock:
+            targets = list(self.connections.keys())
+
+        if not targets:
+            return
+
+        dead_connections = []
+        for connection in targets:
             try:
                 await connection.send_json(message)
             except Exception:
-                self.disconnect(connection)
+                dead_connections.append(connection)
+
+        if dead_connections:
+            async with self._lock:
+                for dead in dead_connections:
+                    if dead in self.connections:
+                        del self.connections[dead]
+                    try:
+                        await dead.close()
+                    except Exception:
+                        pass
+            logger.info(f"清理失效 WebSocket 连接 {len(dead_connections)} 个，剩余: {len(self.connections)}")
+
+    async def clean_stale_connections(self, max_idle_seconds: float = 60.0):
+        """定期清理超时的无响应僵尸连接"""
+        now = time.time()
+        stale = []
+        async with self._lock:
+            for ws, meta in self.connections.items():
+                if now - meta.get("last_active", now) > max_idle_seconds:
+                    stale.append(ws)
+
+        if stale:
+            for ws in stale:
+                await self.disconnect(ws)
+            logger.info(f"清理超时僵尸连接 {len(stale)} 个")
 
 ws_manager = ConnectionManager()
 
@@ -755,58 +818,50 @@ async def get_groups():
     return {"status": "success", "data": sorted(list(groups))}
 
 
-class AddStockRequest(BaseModel):
-    code: str
-    name: Optional[str] = None
-    group: Optional[str] = "自选"
-    threshold: Optional[float] = 3.0
-    asset_type: Optional[str] = None
-
-
-@app.post("/api/watchlist/add")
-async def add_stock(req: AddStockRequest):
+@app.post("/api/watchlist/add", response_model=StandardApiResponse)
+async def add_stock(req: WatchlistItemCreate):
     try:
         item = watchlist_manager.add(req.code, name=req.name, group=req.group or "自选",
                                      threshold=req.threshold or 3.0, asset_type=req.asset_type)
         await asyncio.to_thread(fetch_batch_quotes)
-        return {"status": "success", "data": item}
+        return StandardApiResponse(status="success", data=item)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@app.delete("/api/watchlist/{code}")
+@app.delete("/api/watchlist/{code}", response_model=StandardApiResponse)
 async def remove_stock(code: str):
     item = watchlist_manager.remove(code)
     if not item:
         raise HTTPException(status_code=404, detail="未找到该标的")
     if code in cached_quotes:
         cached_quotes.pop(code, None)
-    return {"status": "success", "data": item}
+    return StandardApiResponse(status="success", data=item)
 
 
-@app.patch("/api/watchlist/{code}")
-async def update_stock(code: str, enabled: Optional[bool] = None, threshold: Optional[float] = None, group: Optional[str] = None):
+@app.patch("/api/watchlist/{code}", response_model=StandardApiResponse)
+async def update_stock(code: str, req: WatchlistItemUpdate):
     item = watchlist_manager.find(code)
     if not item:
         raise HTTPException(status_code=404, detail="未找到该标的")
 
-    if enabled is not None:
-        item["enabled"] = enabled
-    if threshold is not None:
-        item["alert_threshold_pct"] = threshold
-    if group is not None:
-        item["group"] = group
+    if req.enabled is not None:
+        item["enabled"] = req.enabled
+    if req.threshold is not None:
+        item["alert_threshold_pct"] = req.threshold
+    if req.group is not None:
+        item["group"] = req.group
 
     watchlist_manager.save()
     if code in cached_quotes:
-        if enabled is not None:
-            cached_quotes[code]["enabled"] = enabled
-        if threshold is not None:
-            cached_quotes[code]["threshold"] = threshold
-        if group is not None:
-            cached_quotes[code]["group"] = group
+        if req.enabled is not None:
+            cached_quotes[code]["enabled"] = req.enabled
+        if req.threshold is not None:
+            cached_quotes[code]["threshold"] = req.threshold
+        if req.group is not None:
+            cached_quotes[code]["group"] = req.group
 
-    return {"status": "success", "data": item}
+    return StandardApiResponse(status="success", data=item)
 
 
 @app.get("/api/check-code/{code}")
@@ -832,10 +887,22 @@ async def websocket_endpoint(websocket: WebSocket):
     try:
         while True:
             data = await websocket.receive_text()
-            if data == "ping":
+            await ws_manager.record_heartbeat(websocket)
+            # 处理客户端纯文本 ping 或 JSON 格式心跳
+            if data.strip() == "ping":
                 await websocket.send_text("pong")
-    except WebSocketDisconnect:
-        ws_manager.disconnect(websocket)
+            else:
+                try:
+                    payload = json.loads(data)
+                    if payload.get("type") == "ping":
+                        await websocket.send_json({"type": "PONG", "timestamp": time.time()})
+                except Exception:
+                    pass
+    except (WebSocketDisconnect, ConnectionResetError):
+        await ws_manager.disconnect(websocket)
+    except Exception as e:
+        logger.warning(f"WebSocket 会话异常: {e}")
+        await ws_manager.disconnect(websocket)
 
 
 @app.post("/api/alerts/clear")
