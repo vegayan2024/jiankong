@@ -35,6 +35,9 @@ const state = {
 const el = {
   updateTimer: document.getElementById('update-timer'),
   marketFullDatetime: document.getElementById('market-full-datetime'),
+  marketSessionBadge: document.getElementById('market-session-badge'),
+  sessionLiveTime: document.getElementById('session-live-time'),
+  sessionStatusText: document.getElementById('session-status-text'),
   matrixTimeVal: document.getElementById('matrix-time-val'),
   compassSummaryText: document.getElementById('compass-summary-text'),
   tipSentiment: document.getElementById('tip-sentiment'),
@@ -1277,6 +1280,47 @@ function renderMacroCompass(data) {
 }
 
 // ==========================================
+// A股交易时段徽章 (交易时间 / 非交易时间标注)
+// ==========================================
+const SESSION_BADGE_CLASS = {
+  morning: 'session-trading',
+  afternoon: 'session-trading',
+  pre_open: 'session-break',
+  lunch: 'session-break',
+  closed: 'session-closed',
+  weekend: 'session-closed',
+  holiday: 'session-closed',
+};
+
+function updateMarketSession(ms) {
+  if (!ms || !el.marketSessionBadge) return;
+  const cls = SESSION_BADGE_CLASS[ms.session] || 'session-closed';
+  el.marketSessionBadge.classList.remove('session-trading', 'session-break', 'session-closed');
+  el.marketSessionBadge.classList.add(cls);
+  if (el.sessionStatusText) {
+    el.sessionStatusText.textContent = `${ms.status_icon || ''} ${ms.status_label || ''}`.trim();
+  }
+  const tips = [ms.session_label, ms.note].filter(Boolean).join(' · ');
+  el.marketSessionBadge.title = tips ? `当前交易时段 (A股)：${tips}` : '当前交易时段 (A股)';
+  // 服务器时间权威校正（服务器与本机同处北京时间环境，秒级对齐即可）
+  if (ms.server_time) {
+    const parsed = Date.parse(ms.server_time.replace(' ', 'T'));
+    if (!Number.isNaN(parsed)) {
+      sessionClockOffsetMs = parsed - Date.now();
+    }
+  }
+}
+
+// 每秒刷新时间点（以服务器时间为准，避免本机时钟漂移）
+let sessionClockOffsetMs = 0;
+setInterval(() => {
+  if (!el.sessionLiveTime) return;
+  const now = new Date(Date.now() + sessionClockOffsetMs);
+  const pad = (n) => String(n).padStart(2, '0');
+  el.sessionLiveTime.textContent = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+}, 1000);
+
+// ==========================================
 // WebSocket Connection (KPI Dashboard Design Spec)
 // ==========================================
 let wsHeartbeatTimer = null;
@@ -1295,6 +1339,7 @@ function applyPendingTickUpdate() {
   if (el.updateTimer) el.updateTimer.textContent = wsDt;
   if (el.marketFullDatetime) el.marketFullDatetime.textContent = wsDt;
   if (el.matrixTimeVal) el.matrixTimeVal.textContent = wsDt;
+  if (msg.market_session) updateMarketSession(msg.market_session);
   if (msg.macro_compass) {
     renderMacroCompass(msg.macro_compass);
   }

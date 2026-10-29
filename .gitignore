@@ -11,3 +11,8 @@ scratch/
 # Operating System Files
 .DS_Store
 Thumbs.db
+
+# 敏感凭证：禁止提交到版本库（tushare token 等）
+.env
+.env.*
+!.env.example

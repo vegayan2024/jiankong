@@ -1,10 +1,31 @@
 # QUANT RADAR (Jiankong) - A股/港股/指数/ETF 全资产实时监控终端
 
-![Version](https://img.shields.io/badge/version-2.1.0-blue.svg)
+![Version](https://img.shields.io/badge/version-2.2.0-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.10%2B-brightgreen.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
 > **QUANT RADAR (Jiankong)** 是专为 A 股与港股投资者打造的轻量级、低延迟、高信息密度的全资产即时监控与情报终端。系统集成了基准指数、高波动热点 ETF、风格题材领衔龙头与周期产业基本盘标的，提供毫秒级价格变动追踪、同花顺问财 (iwencai.com) 标准热点题材洞察、巨潮法定信披与 7x24 财经电报联动。
+
+---
+
+## 📌 最近更新 (v2.2.0)
+
+本次版本借鉴 [Sequoia-X](https://github.com/sngyai/Sequoia-X)、[a-stock-data](https://github.com/simonlin1212/a-stock-data)、[PanWatch](https://github.com/TNT-Likely/PanWatch) 三个开源项目的成熟模式，重点强化数据链路韧性、预警能力与交易时段感知：
+
+- **📈 历史行情多源降级链 + 本地缓存**（借鉴 Sequoia-X / a-stock-data）
+  - 详情页历史 K 线按 **tushare → akshare → baostock → 腾讯** 顺序自动降级获取，单一信源故障不再导致详情页空白；全链路统一**前复权 (qfq)** 口径。
+  - 港股/指数/ETF 直连腾讯行情兜底（baostock 不支持港股）。
+  - 新增 SQLite 本地 K 线缓存 (`scratch/kline_cache.db`)，7 天内数据直接命中缓存，显著加速重复打开；缓存记录每个数据点的实际来源，可溯源。
+  - 借鉴 a-stock-data 为东财估值接口增加限流门控（串行 + 最小间隔 + 随机抖动），杜绝高频封禁。
+- **🚨 组合条件预警引擎**（借鉴 PanWatch，纯规则引擎，不依赖 LLM）
+  - 支持 `and / or` 组合条件组（如「涨幅 ≥5% 且 换手率 ≥8%」），告别单一涨跌幅阈值。
+  - 内置防轰炸门控：单标的默认 30 分钟冷却 + 每日 5 次触发上限，预警状态持久化重启不丢。
+  - 完全向后兼容：未配置组合条件的标的自动按原单阈值逻辑等价运行。
+- **🕒 首页交易时段徽章**
+  - 顶部时间胶囊新增秒级时钟 + **交易时间 🟢 / 非交易时间 🔴** 实时标注（集合竞价 🟡、午间休市 🟡、收盘、周末、法定节假日全覆盖）。
+  - 节假日判定基于 baostock 官方交易日历（全年缓存，跨年自动刷新），非简单工作日推断。
+- **🛡️ 凭证安全**：新增 `.env` 管理 tushare token，并已加入 `.gitignore` 白名单排除，杜绝密钥入库。
+- **🐛 修复**：修复顶部导航栏在高缩放/窄窗口下统计区文字竖排错位的问题，新增三档屏幕宽度自适应。
 
 ---
 
@@ -76,12 +97,22 @@ jiankong/
 
 ### 环境要求
 - Python 3.10 或更高版本
-- 依赖库：`fastapi`, `uvicorn`, `akshare`, `requests`, `pydantic`
+- 依赖库：`fastapi`, `uvicorn`, `akshare`, `tushare`, `baostock`, `requests`, `pydantic`, `python-dotenv`
 
 ### 安装依赖
 ```bash
-pip install fastapi uvicorn akshare requests pydantic
+pip install fastapi uvicorn akshare tushare baostock requests pydantic python-dotenv
 ```
+
+### 配置数据源凭证 (可选)
+
+历史行情首选 tushare，请在项目根目录创建 `.env` 并填入 token（该文件已被 `.gitignore` 排除，不会提交到版本库）：
+
+```bash
+TUSHARE_TOKEN=你的token
+```
+
+未配置时历史行情自动使用 akshare / baostock / 腾讯等免凭证信源，功能不受影响。
 
 ### 启动服务
 #### 方式一：一键双击启动 (推荐)

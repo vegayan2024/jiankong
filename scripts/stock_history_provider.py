@@ -8,10 +8,14 @@
 3. 市盈率 PE (TTM) 历史走势
 4. 净资产收益率 ROE 历年/历季走势
 
-数据源遵循双轨与降级链：
-- 价格时序：腾讯行情 API (fqkline 全时序直连，覆盖 A股、港股、指数、ETF)
+数据源降级链 (2026-10-29 借鉴 sngyai/Sequoia-X 与 simonlin1212/a-stock-data 重构)：
+- 价格时序 (A股)：tushare → akshare → baostock → 腾讯行情(全资产兜底)
+- 价格时序 (港股/指数/ETF)：直接腾讯行情 (三级链主要覆盖 A股，腾讯为唯一稳定覆盖港股的源)
 - 估值时序 (PB/PE)：东方财富数据中心 RPT_VALUEANALYSIS_DET + 财报倒推全覆盖
 - 财务指标 (ROE)：同花顺 iFinD/THS F10 (第一优先级) + 东方财富财务摘要备用
+
+本地缓存 (借鉴 Sequoia-X)：
+- 顶层 JSON 磁盘缓存 (每标的每日一次) + SQLite K线增量积累库 (UNIQUE 去重、跨天保留、故障兜底)
 """
 
 import os
@@ -19,14 +23,24 @@ import re
 import sys
 import json
 import time
+import random
+import sqlite3
 import logging
+import threading
 from pathlib import Path
-from typing import Dict, Any, List, Optional
-from datetime import datetime
+from typing import Dict, Any, List, Optional, Tuple
+from datetime import datetime, date, timedelta
 
 # 防止代理干扰国内金融接口
 os.environ["NO_PROXY"] = "*"
 os.environ["no_proxy"] = "*"
+
+# 加载 .env 中的 TUSHARE_TOKEN (该文件已被 .gitignore 忽略，不会提交)
+try:
+    from dotenv import load_dotenv
+    load_dotenv(Path(__file__).resolve().parent.parent / ".env")
+except Exception:
+    pass
 
 import requests
 from concurrent.futures import ThreadPoolExecutor
@@ -38,6 +52,32 @@ http_session.mount("https://", adapter)
 
 logger = logging.getLogger("StockHistoryProvider")
 
+# ======================== 东方财富统一防封闸门 (借鉴 a-stock-data em_get) ========================
+# 东财不同子域共用同一套 WAF，风控实测：>5次/秒、并发≥10 即封。所有 eastmoney.com 请求
+# 统一走本闸门：串行 + 最小间隔 + 随机抖动 + 带 Referer/UA。403/连接重置视为风控信号不重试。
+EM_SESSION = requests.Session()
+EM_SESSION.headers.update({
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Referer": "https://data.eastmoney.com/",
+    "Accept": "*/*",
+})
+EM_MIN_INTERVAL = 1.0  # 东财请求最小间隔秒
+_em_last_call = [0.0]
+_em_lock = threading.Lock()
+
+
+def em_get(url: str, params=None, headers=None, timeout: float = 8.0) -> requests.Response:
+    """东财专用限流 GET：串行 + 最小间隔 + 随机抖动，防止触发 WAF 封禁。"""
+    with _em_lock:
+        wait = EM_MIN_INTERVAL - (time.time() - _em_last_call[0])
+        if wait > 0:
+            time.sleep(wait + random.uniform(0.05, 0.3))
+        try:
+            return EM_SESSION.get(url, params=params, headers=headers, timeout=timeout)
+        finally:
+            _em_last_call[0] = time.time()
+
+
 CACHE_DIR = Path(__file__).resolve().parent.parent / "scratch" / "history_cache"
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -45,13 +85,21 @@ CACHE_DIR.mkdir(parents=True, exist_ok=True)
 _mem_cache: Dict[str, Dict[str, Any]] = {}
 _cache_ttl = 600
 
+# ======================== 数据源配置 ========================
+TUSHARE_TOKEN = os.environ.get("TUSHARE_TOKEN", "").strip()
+# 全历史起点 (A股最早交易年度)
+KLINE_START_DATE = "1990-01-01"
+# SQLite K线缓存新鲜度阈值 (日历天)：缓存最新日期距今 <= 该值则直接使用本地缓存
+KLINE_CACHE_FRESH_DAYS = 7
 
+
+# ======================== 代码规范化 ========================
 def clean_symbol(code: str) -> Dict[str, str]:
     """清洗提取股票代码、腾讯格式与市场标识"""
     code_raw = str(code).strip().upper()
     parts = code_raw.split(".")
     base = parts[0]
-    
+
     # 知名指数特殊映射
     index_map = {
         "000001.SH": ("sh000001", "000001", "SH", "index"),
@@ -97,7 +145,7 @@ def clean_symbol(code: str) -> Dict[str, str]:
         mkt = "BJ"
     else:
         mkt = "SH"
-    
+
     prefix = mkt.lower()
     atype = "etf" if sym6.startswith(("51", "15", "56", "58", "16")) else "stock"
     return {
@@ -109,8 +157,113 @@ def clean_symbol(code: str) -> Dict[str, str]:
     }
 
 
+def _to_baostock_code(symbol: str, market: str) -> str:
+    """纯数字代码转 baostock 格式 (sh./sz.)。北交所 baostock 不支持，返回空由腾讯兜底。"""
+    if symbol.startswith(("6", "9")):
+        return f"sh.{symbol}"
+    if symbol.startswith(("0", "3")):
+        return f"sz.{symbol}"
+    return ""  # 北交所 4/8 开头等，baostock 不覆盖
+
+
+def _norm_date(d: str) -> str:
+    """统一日期格式为 YYYY-MM-DD"""
+    d = str(d).strip()
+    if len(d) == 8 and d.isdigit():
+        return f"{d[:4]}-{d[4:6]}-{d[6:8]}"
+    return d.split(" ")[0]
+
+
+# ======================== SQLite K线本地缓存 (借鉴 Sequoia-X) ========================
+class KlineCache:
+    """K线本地增量积累库：UNIQUE(symbol,freq,date) 幂等去重、跨天保留、源故障时兜底。"""
+
+    def __init__(self, db_path: Path):
+        self.db_path = str(db_path)
+        self._init_db()
+
+    def _conn(self):
+        return sqlite3.connect(self.db_path, timeout=15)
+
+    def _init_db(self):
+        try:
+            with self._conn() as conn:
+                conn.execute("""
+                    CREATE TABLE IF NOT EXISTS kline (
+                        symbol TEXT NOT NULL,
+                        freq   TEXT NOT NULL,
+                        date   TEXT NOT NULL,
+                        open REAL, high REAL, low REAL, close REAL, volume REAL,
+                        source TEXT,
+                        PRIMARY KEY (symbol, freq, date)
+                    )
+                """)
+                conn.execute("CREATE INDEX IF NOT EXISTS idx_kline_sym ON kline(symbol, freq, date)")
+        except Exception as e:
+            logger.warning(f"初始化 K线缓存库失败: {e}")
+
+    def max_date(self, symbol: str, freq: str) -> Optional[str]:
+        try:
+            with self._conn() as conn:
+                row = conn.execute(
+                    "SELECT MAX(date) FROM kline WHERE symbol=? AND freq=?",
+                    (symbol, freq)
+                ).fetchone()
+            return row[0] if row and row[0] else None
+        except Exception:
+            return None
+
+    def source(self, symbol: str, freq: str) -> Optional[str]:
+        """查询该标的该频率最新一条K线的实际命中数据源 (用于溯源)。"""
+        try:
+            with self._conn() as conn:
+                row = conn.execute(
+                    "SELECT source FROM kline WHERE symbol=? AND freq=? ORDER BY date DESC LIMIT 1",
+                    (symbol, freq)
+                ).fetchone()
+            return row[0] if row and row[0] else None
+        except Exception:
+            return None
+
+    def read(self, symbol: str, freq: str) -> List[Dict[str, Any]]:
+        try:
+            with self._conn() as conn:
+                rows = conn.execute(
+                    "SELECT date, open, high, low, close, volume FROM kline "
+                    "WHERE symbol=? AND freq=? ORDER BY date",
+                    (symbol, freq)
+                ).fetchall()
+            return [
+                {"date": r[0], "open": r[1], "high": r[2], "low": r[3], "close": r[4], "volume": r[5]}
+                for r in rows
+            ]
+        except Exception:
+            return []
+
+    def upsert(self, symbol: str, freq: str, rows: List[Dict[str, Any]], source: str):
+        if not rows:
+            return
+        data = [
+            (symbol, freq, r["date"], r.get("open"), r.get("high"), r.get("low"),
+             r.get("close"), r.get("volume"), source)
+            for r in rows
+        ]
+        try:
+            with self._conn() as conn:
+                conn.executemany(
+                    "INSERT OR IGNORE INTO kline(symbol,freq,date,open,high,low,close,volume,source) "
+                    "VALUES(?,?,?,?,?,?,?,?,?)", data
+                )
+        except Exception as e:
+            logger.warning(f"写入 K线缓存失败: {e}")
+
+
+kline_cache = KlineCache(CACHE_DIR / "kline_cache.db")
+
+
+# ======================== 腾讯行情 (全资产兜底) ========================
 def fetch_month_kline(tencent_sym: str) -> List[Dict[str, Any]]:
-    """获取自上市首日至今的月K线(全历史无截断)"""
+    """腾讯：获取自上市首日至今的月K线(全历史无截断)。前复权 qfq。"""
     url_month = f"http://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param={tencent_sym},month,,,1200,qfq"
     monthly_result: List[Dict[str, Any]] = []
     try:
@@ -135,7 +288,7 @@ def fetch_month_kline(tencent_sym: str) -> List[Dict[str, Any]]:
 
 
 def fetch_day_kline(tencent_sym: str) -> List[Dict[str, Any]]:
-    """获取近期高密度日K时序 (最近640个交易日)"""
+    """腾讯：获取近期高密度日K时序 (最近640个交易日)。前复权 qfq。"""
     url_day = f"http://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param={tencent_sym},day,,,640,qfq"
     daily_result: List[Dict[str, Any]] = []
     try:
@@ -159,6 +312,190 @@ def fetch_day_kline(tencent_sym: str) -> List[Dict[str, Any]]:
     return daily_result
 
 
+def _fetch_kline_tencent(tencent_sym: str, freq: str) -> List[Dict[str, Any]]:
+    return fetch_month_kline(tencent_sym) if freq == "month" else fetch_day_kline(tencent_sym)
+
+
+# ======================== tushare (A股第一顺位) ========================
+def _fetch_kline_tushare(ts_code: str, freq: str) -> List[Dict[str, Any]]:
+    """tushare pro_bar 前复权 K线。需 TUSHARE_TOKEN，未配置则抛错降级。"""
+    if not TUSHARE_TOKEN:
+        raise RuntimeError("TUSHARE_TOKEN 未配置")
+    import tushare as ts
+    ts.set_token(TUSHARE_TOKEN)
+    # tushare 1.4.29 pro_bar 复权参数为 adj ('qfq'前复权/'hfq'后复权/None不复权)
+    if freq == "month":
+        df = ts.pro_bar(ts_code=ts_code, freq="M", adj="qfq")
+    else:
+        df = ts.pro_bar(ts_code=ts_code, adj="qfq")
+    if df is None or df.empty:
+        raise RuntimeError("tushare 返回空数据")
+    out: List[Dict[str, Any]] = []
+    # tushare 默认按日期降序，统一转升序
+    for _, row in df.iterrows():
+        try:
+            d = _norm_date(row.get("trade_date", ""))
+            close = row.get("close")
+            if not d or close is None:
+                continue
+            out.append({
+                "date": d,
+                "open": float(row.get("open")) if row.get("open") is not None else None,
+                "high": float(row.get("high")) if row.get("high") is not None else None,
+                "low": float(row.get("low")) if row.get("low") is not None else None,
+                "close": float(close),
+                "volume": float(row.get("volume")) if row.get("volume") is not None else 0.0
+            })
+        except Exception:
+            continue
+    out.sort(key=lambda x: x["date"])
+    if not out:
+        raise RuntimeError("tushare 解析后无有效数据")
+    return out
+
+
+# ======================== akshare (A股第二顺位) ========================
+def _fetch_kline_akshare(symbol: str, freq: str) -> List[Dict[str, Any]]:
+    """akshare 东财 stock_zh_a_hist 前复权 K线。"""
+    import akshare as ak
+    period = "monthly" if freq == "month" else "daily"
+    today_str = date.today().strftime("%Y%m%d")
+    df = ak.stock_zh_a_hist(
+        symbol=symbol, period=period,
+        start_date=KLINE_START_DATE.replace("-", ""), end_date=today_str, adjust="qfq"
+    )
+    if df is None or df.empty:
+        raise RuntimeError("akshare 返回空数据")
+    out: List[Dict[str, Any]] = []
+    for _, row in df.iterrows():
+        try:
+            d = _norm_date(row.get("日期", ""))
+            close = row.get("收盘")
+            if not d or close is None:
+                continue
+            out.append({
+                "date": d,
+                "open": float(row.get("开盘")) if row.get("开盘") is not None else None,
+                "high": float(row.get("最高")) if row.get("最高") is not None else None,
+                "low": float(row.get("最低")) if row.get("最低") is not None else None,
+                "close": float(close),
+                "volume": float(row.get("成交量")) if row.get("成交量") is not None else 0.0
+            })
+        except Exception:
+            continue
+    out.sort(key=lambda x: x["date"])
+    if not out:
+        raise RuntimeError("akshare 解析后无有效数据")
+    return out
+
+
+# ======================== baostock (A股第三顺位，借鉴 Sequoia-X) ========================
+def _fetch_kline_baostock(bs_code: str, freq: str) -> List[Dict[str, Any]]:
+    """baostock 前复权 (adjustflag=2) K线。函数级 login/logout，失败抛错降级。"""
+    if not bs_code:
+        raise RuntimeError("baostock 不覆盖该市场")
+    import baostock as bs
+    lg = bs.login()
+    if lg.error_code != "0":
+        raise RuntimeError(f"baostock 登录失败: {lg.error_msg}")
+    try:
+        frequency = "m" if freq == "month" else "d"
+        rs = bs.query_history_k_data_plus(
+            bs_code, "date,open,high,low,close,volume",
+            start_date=KLINE_START_DATE, end_date=date.today().strftime("%Y-%m-%d"),
+            frequency=frequency, adjustflag="2"  # 前复权，与腾讯 qfq 口径统一
+        )
+        if rs.error_code != "0":
+            raise RuntimeError(f"baostock 查询失败: {rs.error_msg}")
+        out: List[Dict[str, Any]] = []
+        while rs.next():
+            r = rs.get_row_data()
+            try:
+                close = float(r[4])
+                out.append({
+                    "date": r[0],
+                    "open": float(r[1]) if r[1] else None,
+                    "high": float(r[2]) if r[2] else None,
+                    "low": float(r[3]) if r[3] else None,
+                    "close": close,
+                    "volume": float(r[5]) if r[5] else 0.0
+                })
+            except Exception:
+                continue
+        out = [x for x in out if x["close"] and x["close"] > 0]
+        if not out:
+            raise RuntimeError("baostock 解析后无有效数据")
+        return out
+    finally:
+        bs.logout()
+
+
+# ======================== 降级链调度 ========================
+def fetch_kline_chain(info: Dict[str, str], freq: str) -> Tuple[List[Dict[str, Any]], str]:
+    """
+    价格时序降级链：
+    - A股股票：tushare → akshare → baostock → 腾讯行情
+    - 港股/指数/ETF/北交所：直接腾讯行情 (三级链主要覆盖 A股，腾讯为唯一稳定覆盖港股的源)
+    返回 (K线列表, 实际命中的数据源名)。全部失败返回 ([], "none")。
+    """
+    sym = info["symbol"]
+    market = info["market"]
+    atype = info["asset_type"]
+
+    # 非 A股股票 (港股/指数/ETF) 直接走腾讯
+    if market == "HK" or atype != "stock":
+        rows = _fetch_kline_tencent(info["tencent_sym"], freq)
+        return rows, ("tencent" if rows else "none")
+
+    # A股股票：三级降级链 + 腾讯兜底
+    providers = [
+        ("tushare", lambda: _fetch_kline_tushare(f"{sym}.{market}", freq)),
+        ("akshare", lambda: _fetch_kline_akshare(sym, freq)),
+        ("baostock", lambda: _fetch_kline_baostock(_to_baostock_code(sym, market), freq)),
+        ("tencent", lambda: _fetch_kline_tencent(info["tencent_sym"], freq)),
+    ]
+    for name, fn in providers:
+        try:
+            rows = fn()
+            if rows:
+                logger.info(f"{info['full_code']} {freq}K 命中数据源: {name} ({len(rows)} 条)")
+                return rows, name
+        except Exception as e:
+            logger.warning(f"{info['full_code']} {freq}K 数据源 {name} 失败，降级下一顺位: {e}")
+    return [], "none"
+
+
+def get_kline_cached(info: Dict[str, str], freq: str) -> List[Dict[str, Any]]:
+    """
+    带 SQLite 本地缓存的 K线获取：
+    1. 本地缓存新鲜 (最新日期距今 <= 7 天) → 直接读缓存
+    2. 否则走降级链全量拉取 → INSERT OR IGNORE 写入缓存 → 读全量返回
+    3. 拉取全失败 → 读旧缓存兜底 (可能为空，绝不伪造)
+    """
+    cache_key = info["full_code"]
+    maxd = kline_cache.max_date(cache_key, freq)
+    if maxd:
+        try:
+            last = datetime.strptime(maxd, "%Y-%m-%d").date()
+            if (date.today() - last).days <= KLINE_CACHE_FRESH_DAYS:
+                cached = kline_cache.read(cache_key, freq)
+                if cached:
+                    return cached
+        except Exception:
+            pass
+
+    rows, source = fetch_kline_chain(info, freq)
+    if rows:
+        kline_cache.upsert(cache_key, freq, rows, source)
+        cached = kline_cache.read(cache_key, freq)
+        if cached:
+            return cached
+        return rows
+    # 拉取全失败：尝试旧缓存兜底
+    return kline_cache.read(cache_key, freq)
+
+
+# ======================== 估值与财务指标 (保持原有逻辑) ========================
 def fetch_valuation_history(symbol: str) -> List[Dict[str, Any]]:
     """获取标的市盈率 PE(TTM) 与市净率 PB(MRQ) 历史时序 (东财数据中心)"""
     url = (
@@ -174,7 +511,7 @@ def fetch_valuation_history(symbol: str) -> List[Dict[str, Any]]:
 
     result = []
     try:
-        resp = http_session.get(url, headers=headers, timeout=5.0)
+        resp = em_get(url, headers=headers, timeout=8.0)  # 走东财防封闸门
         if resp.status_code == 200:
             res_obj = resp.json().get("result")
             if res_obj and res_obj.get("data"):
@@ -198,7 +535,7 @@ def fetch_valuation_history(symbol: str) -> List[Dict[str, Any]]:
 def fetch_roe_history(symbol: str) -> List[Dict[str, Any]]:
     """获取标的历年历季净资产收益率 (ROE) 报告期时序 (优先同花顺 F10 权威源)"""
     result = []
-    
+
     # 1. 优先调用同花顺 F10 财务摘要 (THS)
     try:
         import akshare as ak
@@ -210,7 +547,7 @@ def fetch_roe_history(symbol: str) -> List[Dict[str, Any]]:
                 roe_tb_str = str(row.get("净资产收益率-摊薄", "")).strip()
                 eps_str = str(row.get("基本每股收益", "")).strip()
                 bps_str = str(row.get("每股净资产", "")).strip()
-                
+
                 roe_val = None
                 for candidate in [roe_str, roe_tb_str]:
                     if candidate and candidate != "False" and candidate != "-":
@@ -220,14 +557,14 @@ def fetch_roe_history(symbol: str) -> List[Dict[str, Any]]:
                             break
                         except Exception:
                             pass
-                
+
                 eps_val = None
                 if eps_str and eps_str != "False" and eps_str != "-":
                     try:
                         eps_val = float(eps_str)
                     except Exception:
                         pass
-                        
+
                 bps_val = None
                 if bps_str and bps_str != "False" and bps_str != "-":
                     try:
@@ -255,22 +592,22 @@ def fetch_roe_history(symbol: str) -> List[Dict[str, Any]]:
                 roe_rows = df_abs[df_abs["指标"].str.contains("净资产收益率|ROE", na=False)]
                 bps_rows = df_abs[df_abs["指标"].str.contains("每股净资产", na=False)]
                 eps_rows = df_abs[df_abs["指标"].str.contains("基本每股收益", na=False)]
-                
+
                 date_cols = [c for c in df_abs.columns if c not in ["选项", "指标"]]
                 date_cols.sort()
-                
+
                 for d_col in date_cols:
                     date_formatted = f"{d_col[:4]}-{d_col[4:6]}-{d_col[6:8]}" if len(d_col) == 8 else d_col
                     roe_val = None
                     bps_val = None
                     eps_val = None
-                    
+
                     if not roe_rows.empty:
                         v = roe_rows.iloc[0].get(d_col)
                         if v is not None and str(v) != "-" and str(v) != "nan":
                             try: roe_val = round(float(v), 2)
                             except Exception: pass
-                    
+
                     if not bps_rows.empty:
                         v = bps_rows.iloc[0].get(d_col)
                         if v is not None and str(v) != "-" and str(v) != "nan":
@@ -282,7 +619,7 @@ def fetch_roe_history(symbol: str) -> List[Dict[str, Any]]:
                         if v is not None and str(v) != "-" and str(v) != "nan":
                             try: eps_val = round(float(v), 4)
                             except Exception: pass
-                            
+
                     if roe_val is not None or bps_val is not None:
                         result.append({
                             "date": date_formatted,
@@ -310,11 +647,11 @@ def calculate_percentile(values: List[float], current: float) -> Optional[float]
 def get_stock_history_and_valuation(code: str) -> Dict[str, Any]:
     """
     统一入口：获取标的上市首日至最新交易日的全景量价、PB、PE 与 ROE 走势及综合统计
+    返回结构保持不变 (summary/monthly_history/daily_history/valuation_history/roe_history)
     """
     info = clean_symbol(code)
     sym = info["symbol"]
     market = info["market"]
-    tc_sym = info["tencent_sym"]
     atype = info["asset_type"]
     cache_key = f"{sym}_{market}"
 
@@ -337,11 +674,11 @@ def get_stock_history_and_valuation(code: str) -> Dict[str, Any]:
         except Exception:
             pass
 
-    # 3. 在线并发拉取行情与指标 (多线程并发加速，降低75%响应延迟)
+    # 3. 在线并发拉取行情与指标 (价格时序走 SQLite 缓存 + 三级降级链)
     is_equity = (atype == "stock")
     with ThreadPoolExecutor(max_workers=4) as executor:
-        f_month = executor.submit(fetch_month_kline, tc_sym)
-        f_day = executor.submit(fetch_day_kline, tc_sym)
+        f_month = executor.submit(get_kline_cached, info, "month")
+        f_day = executor.submit(get_kline_cached, info, "day")
         f_val = executor.submit(fetch_valuation_history, sym) if is_equity and market != "HK" else None
         f_roe = executor.submit(fetch_roe_history, sym) if is_equity and market != "HK" else None
 
@@ -434,7 +771,14 @@ def get_stock_history_and_valuation(code: str) -> Dict[str, Any]:
         "monthly_history": monthly_klines,
         "daily_history": daily_klines,
         "valuation_history": val_list,
-        "roe_history": roe_list
+        "roe_history": roe_list,
+        # 溯源元信息 (借鉴 a-stock-data 统一契约，前端可忽略，符合可溯源铁律)
+        "kline_meta": {
+            "monthly_source": kline_cache.source(info["full_code"], "month"),
+            "daily_source": kline_cache.source(info["full_code"], "day"),
+            "adjust": "前复权(qfq)",
+            "fetched_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        }
     }
 
     _mem_cache[cache_key] = {"timestamp": now_ts, "data": final_payload}
@@ -450,17 +794,11 @@ stock_history_provider = get_stock_history_and_valuation
 
 
 if __name__ == "__main__":
-    test_code = "600409"
-    res = get_stock_history_and_valuation(test_code)
-    print("Code:", res["summary"]["code"])
-    print("IPO Date:", res["summary"]["ipo_date"])
-    print("Total Months:", res["summary"]["total_months"])
-    print("Total Days:", res["summary"]["total_days"])
-    print("Latest Price:", res["summary"]["latest_price"])
-    print("Latest PB:", res["summary"]["latest_pb"], f"Percentile: {res['summary']['pb_percentile']}%")
-    print("Latest PE:", res["summary"]["latest_pe"], f"Percentile: {res['summary']['pe_percentile']}%")
-    print("Latest ROE:", res["summary"]["latest_roe"])
-    print("Monthly Klines:", len(res["monthly_history"]))
-    print("Daily Klines:", len(res["daily_history"]))
-    print("Valuation Series:", len(res["valuation_history"]))
-    print("ROE Series:", len(res["roe_history"]))
+    for test_code in ["600409", "00700.HK", "000300.SH"]:
+        print("=" * 50)
+        res = get_stock_history_and_valuation(test_code)
+        s = res["summary"]
+        print("Code:", s["code"], "| market:", s["market"], "| type:", s["asset_type"])
+        print("IPO Date:", s["ipo_date"], "| Latest:", s["latest_date"])
+        print("Months:", s["total_months"], "| Days:", s["total_days"], "| Latest Price:", s["latest_price"])
+        print("PB:", s["latest_pb"], f"({s['pb_percentile']}%)", "| PE:", s["latest_pe"], f"({s['pe_percentile']}%)", "| ROE:", s["latest_roe"])

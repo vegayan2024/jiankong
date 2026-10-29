@@ -57,6 +57,8 @@ from scripts.watchlist_manager import WatchlistManager, normalize_stock_code, fe
 from scripts.cninfo_client import cninfo_client
 from scripts.aihot_engine import aihot_engine
 from scripts.macro_compass import macro_compass
+from scripts.alert_engine import alert_engine
+from scripts.market_session import get_market_session
 from scripts.models import (
     StockQuoteResponse,
     WatchlistItemCreate,
@@ -233,24 +235,31 @@ def _fetch_single_chunk(chunk_items: List[Dict[str, Any]], now_ts: float, now_st
                 threshold = cfg.get("alert_threshold_pct", 3.0)
                 is_enabled = cfg.get("enabled", True)
 
-                # 警报触发判断 (指数通常 1.5%~2.0%，个股 3%~5%)
-                if is_enabled and abs(pct_change) >= threshold:
-                    alert_id = f"{code}:{pct_change:+.1f}:{datetime.now().strftime('%Y%m%d%H%M')[:11]}"
-                    chunk_alerts.append({
-                        "id": alert_id,
-                        "time": full_datetime_str,
-                        "date": today_str,
-                        "time_short": now_str,
-                        "code": code,
-                        "name": name,
-                        "asset_type": asset_type,
-                        "type": "SURGE" if pct_change > 0 else "DROP",
-                        "level": "URGENT" if abs(pct_change) >= (threshold * 2) else "ALERT",
-                        "message": f"{name} 波动达 {pct_change:+.2f}%，触及预警阈值 (±{threshold}%)",
-                        "price": price,
-                        "pct_change": pct_change,
-                        "group": cfg.get("group", "自选")
-                    })
+                # 警报触发判断：借鉴 PanWatch 组合条件预警引擎 (向后兼容单阈值，含冷却/每日上限/防重门禁)
+                if is_enabled:
+                    metrics = {
+                        "price": price, "pct_change": pct_change, "volume": volume,
+                        "amount": amount, "high": high_p, "low": low_p, "prev_close": prev_close
+                    }
+                    alert_core = alert_engine.evaluate_and_gate(cfg, metrics, now_ts=now_ts)
+                    if alert_core:
+                        matched_txt = "；".join(alert_core.get("matched_conditions", []))
+                        chunk_alerts.append({
+                            "id": alert_core["id"],
+                            "time": full_datetime_str,
+                            "date": today_str,
+                            "time_short": now_str,
+                            "code": code,
+                            "name": name,
+                            "asset_type": asset_type,
+                            "type": alert_core["type"],
+                            "level": alert_core["level"],
+                            "message": f"{name} 触发{alert_core['rule']}预警：{matched_txt}",
+                            "price": price,
+                            "pct_change": pct_change,
+                            "group": cfg.get("group", "自选"),
+                            "matched_conditions": alert_core.get("matched_conditions", [])
+                        })
 
                 chunk_quotes[code] = {
                     "code": code,
@@ -507,7 +516,8 @@ async def background_polling_loop():
                 "alerts_count": len(recent_alerts),
                 "news_count": len(recent_news),
                 "news_hit_count": sum(1 for n in recent_news if n.get("is_hit")),
-                "macro_compass": macro_compass.get_full_status()
+                "macro_compass": macro_compass.get_full_status(),
+                "market_session": get_market_session(now_dt)
             })
 
             loop_count += 1

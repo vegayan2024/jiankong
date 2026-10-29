@@ -189,6 +189,47 @@ body {
   padding: 4px 12px;
   border-radius: 6px;
   font-size: 12px;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+/* 中等逻辑宽度 (Windows 高缩放 / 小屏) 下头部让步：先隐藏"行情基准"标签 */
+@media (max-width: 1720px) {
+  .market-datetime-pill .dt-label {
+    display: none;
+  }
+}
+
+/* 更窄时压缩罗盘文字，保证统计看板与徽章完整显示 */
+@media (max-width: 1520px) {
+  .market-datetime-pill {
+    gap: 6px;
+    padding: 4px 8px;
+  }
+  .compass-text {
+    max-width: 190px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+/* 极窄逻辑宽度：进一步压缩导航间距与统计看板，防止头部溢出 */
+@media (max-width: 1400px) {
+  .nav-left {
+    gap: 8px;
+  }
+  .nav-tab-btn {
+    padding: 0 8px;
+    font-size: 11px;
+  }
+  .nav-metrics {
+    gap: 8px;
+    padding: 5px 10px;
+  }
+  .metric-val {
+    font-size: 13px;
+  }
 }
 
 .pulse-dot {
@@ -217,6 +258,42 @@ body {
   color: #0f172a;
   font-weight: 700;
   letter-spacing: 0.3px;
+}
+
+/* 交易时段标注徽章 (时间点 + 交易时间/非交易时间) */
+.market-session-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 9px;
+  border-radius: 11px;
+  border: 1px solid transparent;
+  white-space: nowrap;
+  line-height: 1.6;
+}
+.market-session-badge .session-time {
+  font-family: var(--font-mono);
+  letter-spacing: 0.3px;
+}
+/* 交易时间 (连续竞价中)：绿 */
+.market-session-badge.session-trading {
+  color: #15803d;
+  background: #dcfce7;
+  border-color: #86efac;
+}
+/* 盘前集合竞价 / 午间休市：琥珀 */
+.market-session-badge.session-break {
+  color: #b45309;
+  background: #fef3c7;
+  border-color: #fcd34d;
+}
+/* 收盘 / 周末 / 节假日休市：红 */
+.market-session-badge.session-closed {
+  color: #b91c1c;
+  background: #fee2e2;
+  border-color: #fca5a5;
 }
 
 /* 宏观与风格罗盘指示徽章 (对齐指数观澜量化框架) */
@@ -315,6 +392,8 @@ body {
   padding: 5px 16px;
   border-radius: var(--radius-md);
   border: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .metric-item {
@@ -323,6 +402,8 @@ body {
   gap: 6px;
   font-size: 11px;
   color: var(--text-secondary);
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .metric-val {
@@ -341,12 +422,15 @@ body {
   width: 1px;
   height: 12px;
   background: var(--border-medium);
+  flex-shrink: 0;
 }
 
 .nav-right {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .btn {

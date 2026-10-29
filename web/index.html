@@ -2475,6 +2475,11 @@ body {
           <span class="pulse-dot"></span>
           <span class="dt-label">行情基准</span>
           <span id="market-full-datetime" class="dt-val">--:--:--</span>
+          <!-- 交易时段标注徽章：秒级当前时间点 + 交易时间/非交易时间 -->
+          <span id="market-session-badge" class="market-session-badge session-nontrading" title="当前交易时段 (A股)">
+            <span id="session-live-time" class="session-time">--:--:--</span>
+            <span id="session-status-text">🕒 载入中</span>
+          </span>
           <span id="update-timer" style="display:none;">--:--:--</span>
         </div>
         <!-- 宏观与风格罗盘指示徽章 (对齐南方基金指数观澜量化框架) -->

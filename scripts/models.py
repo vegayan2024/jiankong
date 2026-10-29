@@ -129,6 +129,10 @@ class TickBroadcastMessage(BaseModel):
     news_count: int = Field(0, description="当前资讯数")
     news_hit_count: int = Field(0, description="命中自选池资讯数")
     macro_compass: Optional[Dict[str, Any]] = Field(default=None, description="宏观与风格罗盘状态")
+    market_session: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="当前 A股交易时段状态 (交易时间/非交易时间标注、时段代码与图标、下一开盘提示)"
+    )
 
 
 class StandardApiResponse(BaseModel):
