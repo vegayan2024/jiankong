@@ -868,34 +868,38 @@ function renderStockHistoryChart() {
   let yAxisConfig = [];
   let seriesConfig = [];
 
-  // 1. 半透明股票走势线定义 (深邃经典蓝 + 优雅半透明渐变面积)
+  // 1. 股票走势线：半透明科技经典蓝 + 优雅羽化渐变底衬，作为全局走势主基石
   const priceSeriesDef = {
     name: '自上市至今走势',
     type: 'line',
     yAxisIndex: 0,
     data: priceList,
-    smooth: 0.15,
+    connectNulls: true,
+    sampling: 'lttb',
+    smooth: 0.18,
     showSymbol: false,
     lineStyle: {
       color: '#1d4ed8',
-      width: 2.5
+      width: 2.4
     },
     areaStyle: {
       color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-        { offset: 0, color: 'rgba(29, 78, 216, 0.28)' },
-        { offset: 0.75, color: 'rgba(29, 78, 216, 0.08)' },
-        { offset: 1, color: 'rgba(29, 78, 216, 0.01)' }
+        { offset: 0, color: 'rgba(29, 78, 216, 0.22)' },
+        { offset: 0.7, color: 'rgba(29, 78, 216, 0.05)' },
+        { offset: 1, color: 'rgba(29, 78, 216, 0.00)' }
       ])
     }
   };
 
-  // 2. 市盈率 PE 走势线 (高对比鲜明赤红，绝不与走势混淆)
+  // 2. 市盈率 PE 走势线：高饱和赤红 + 平滑插值 + 缺失无缝贯穿 (connectNulls)
   const peSeriesDef = {
     name: '市盈率 PE',
     type: 'line',
     yAxisIndex: (mode === 'all' ? 1 : (mode === 'valuation' ? 1 : 1)),
     data: peList,
-    smooth: 0.2,
+    connectNulls: true,
+    sampling: 'lttb',
+    smooth: 0.22,
     showSymbol: false,
     lineStyle: {
       color: '#dc2626',
@@ -903,13 +907,15 @@ function renderStockHistoryChart() {
     }
   };
 
-  // 3. 市净率 PB 走势线 (清澈翡翠绿，独立右轴刻度防压扁)
+  // 3. 市净率 PB 走势线：翡翠青绿 + 独立纵轴刻度防压扁 + 连续贯穿
   const pbSeriesDef = {
     name: '市净率 PB',
     type: 'line',
     yAxisIndex: (mode === 'all' ? 2 : (mode === 'valuation' ? 0 : 0)),
     data: pbList,
-    smooth: 0.2,
+    connectNulls: true,
+    sampling: 'lttb',
+    smooth: 0.22,
     showSymbol: false,
     lineStyle: {
       color: '#059669',
@@ -917,20 +923,25 @@ function renderStockHistoryChart() {
     }
   };
 
-  // 4. 净资产收益率 ROE (鲜亮尊贵紫，清晰阶梯与圆点标注)
+  // 4. 净资产收益率 ROE：尊贵紫 + 鲜明阶梯 + 微透明收益率基底色块 (极大提升肉眼辨识度)
   const roeSeriesDef = {
     name: '净资产收益率 ROE',
     type: 'line',
     yAxisIndex: (mode === 'all' ? 3 : 0),
     data: roeList,
+    connectNulls: true,
+    sampling: 'lttb',
     step: 'end',
     showSymbol: true,
     symbol: 'circle',
-    symbolSize: 5,
+    symbolSize: 4.5,
     itemStyle: { color: '#7c3aed' },
     lineStyle: {
       color: '#7c3aed',
-      width: 2.2
+      width: 2.0
+    },
+    areaStyle: {
+      color: 'rgba(124, 58, 237, 0.07)'
     }
   };
 
@@ -941,38 +952,67 @@ function renderStockHistoryChart() {
         name: '走势(元)',
         position: 'left',
         scale: true,
-        splitLine: { lineStyle: { color: '#f1f5f9' } },
+        nameTextStyle: {
+          color: '#1d4ed8',
+          fontSize: 11,
+          fontWeight: 700,
+          align: 'left',
+          padding: [0, 0, 4, 0]
+        },
+        splitLine: { lineStyle: { color: 'rgba(241, 245, 249, 0.9)' } },
         axisLabel: { color: '#1d4ed8', fontSize: 10, fontWeight: 700 },
-        axisLine: { show: true, lineStyle: { color: '#1d4ed8', width: 1.5 } }
+        axisLine: { show: true, lineStyle: { color: '#1d4ed8', width: 2 } }
       },
       {
         type: 'value',
         name: '市盈率 PE',
         position: 'right',
+        offset: 0,
         scale: true,
+        nameTextStyle: {
+          color: '#dc2626',
+          fontSize: 11,
+          fontWeight: 700,
+          align: 'right',
+          padding: [0, 0, 4, 0]
+        },
         splitLine: { show: false },
         axisLabel: { color: '#dc2626', fontSize: 10, fontWeight: 700 },
-        axisLine: { show: true, lineStyle: { color: '#dc2626', width: 1.5 } }
+        axisLine: { show: true, lineStyle: { color: '#dc2626', width: 2 } }
       },
       {
         type: 'value',
         name: '市净率 PB',
         position: 'right',
-        offset: 52,
+        offset: 56,
         scale: true,
+        nameTextStyle: {
+          color: '#059669',
+          fontSize: 11,
+          fontWeight: 700,
+          align: 'right',
+          padding: [0, 0, 4, 0]
+        },
         splitLine: { show: false },
         axisLabel: { color: '#059669', fontSize: 10, fontWeight: 700 },
-        axisLine: { show: true, lineStyle: { color: '#059669', width: 1.5 } }
+        axisLine: { show: true, lineStyle: { color: '#059669', width: 2 } }
       },
       {
         type: 'value',
         name: 'ROE(%)',
         position: 'right',
-        offset: 102,
+        offset: 112,
         scale: true,
+        nameTextStyle: {
+          color: '#7c3aed',
+          fontSize: 11,
+          fontWeight: 700,
+          align: 'right',
+          padding: [0, 0, 4, 0]
+        },
         splitLine: { show: false },
         axisLabel: { color: '#7c3aed', fontSize: 10, fontWeight: 700, formatter: '{value}%' },
-        axisLine: { show: true, lineStyle: { color: '#7c3aed', width: 1.5 } }
+        axisLine: { show: true, lineStyle: { color: '#7c3aed', width: 2 } }
       }
     ];
     seriesConfig = [priceSeriesDef, peSeriesDef, pbSeriesDef, roeSeriesDef];
@@ -982,9 +1022,10 @@ function renderStockHistoryChart() {
       name: '走势(元)',
       position: 'left',
       scale: true,
+      nameTextStyle: { color: '#1d4ed8', fontSize: 11, fontWeight: 700 },
       splitLine: { lineStyle: { color: '#f1f5f9' } },
       axisLabel: { color: '#1d4ed8', fontSize: 11, fontWeight: 700 },
-      axisLine: { show: true, lineStyle: { color: '#1d4ed8', width: 1.5 } }
+      axisLine: { show: true, lineStyle: { color: '#1d4ed8', width: 2 } }
     }];
     seriesConfig = [priceSeriesDef];
   } else if (mode === 'valuation') {
@@ -994,18 +1035,20 @@ function renderStockHistoryChart() {
         name: '市净率 PB',
         position: 'left',
         scale: true,
+        nameTextStyle: { color: '#059669', fontSize: 11, fontWeight: 700 },
         splitLine: { lineStyle: { color: '#f1f5f9' } },
         axisLabel: { color: '#059669', fontSize: 11, fontWeight: 700 },
-        axisLine: { show: true, lineStyle: { color: '#059669', width: 1.5 } }
+        axisLine: { show: true, lineStyle: { color: '#059669', width: 2 } }
       },
       {
         type: 'value',
         name: '市盈率 PE',
         position: 'right',
         scale: true,
+        nameTextStyle: { color: '#dc2626', fontSize: 11, fontWeight: 700 },
         splitLine: { show: false },
         axisLabel: { color: '#dc2626', fontSize: 11, fontWeight: 700 },
-        axisLine: { show: true, lineStyle: { color: '#dc2626', width: 1.5 } }
+        axisLine: { show: true, lineStyle: { color: '#dc2626', width: 2 } }
       }
     ];
     seriesConfig = [pbSeriesDef, peSeriesDef];
@@ -1015,15 +1058,30 @@ function renderStockHistoryChart() {
       name: '净资产收益率 ROE (%)',
       position: 'left',
       scale: true,
+      nameTextStyle: { color: '#7c3aed', fontSize: 11, fontWeight: 700 },
       splitLine: { lineStyle: { color: '#f1f5f9' } },
       axisLabel: { color: '#7c3aed', fontSize: 11, fontWeight: 700, formatter: '{value}%' },
-      axisLine: { show: true, lineStyle: { color: '#7c3aed', width: 1.5 } }
+      axisLine: { show: true, lineStyle: { color: '#7c3aed', width: 2 } }
     }];
     seriesConfig = [roeSeriesDef];
   }
 
   const option = {
-    animationDuration: 350,
+    animationDuration: 300,
+    legend: {
+      show: true,
+      top: 6,
+      left: 70,
+      itemGap: 14,
+      itemWidth: 16,
+      itemHeight: 9,
+      textStyle: {
+        color: '#475569',
+        fontSize: 11,
+        fontWeight: 600
+      },
+      selectedMode: 'multiple'
+    },
     tooltip: {
       trigger: 'axis',
       axisPointer: {
@@ -1041,28 +1099,31 @@ function renderStockHistoryChart() {
         const dStr = params[0].axisValue;
         let html = `<div style="font-size:12px; font-weight:700; margin-bottom:6px; color:#0f172a; border-bottom:1px solid #e2e8f0; padding-bottom:4px;">📅 ${dStr}</div>`;
         params.forEach(p => {
-          if (p.value !== null && p.value !== undefined) {
-            let valStr = p.value;
+          let valStr = p.value !== null && p.value !== undefined ? p.value : null;
+          let displayVal = '';
+          if (valStr !== null) {
             if (p.seriesName.includes('走势') || p.seriesName.includes('价格')) {
-              valStr = `¥ ${Number(p.value).toFixed(2)}`;
+              displayVal = `¥ ${Number(valStr).toFixed(2)}`;
             } else if (p.seriesName.includes('ROE')) {
-              valStr = `${Number(p.value).toFixed(2)}%`;
+              displayVal = `${Number(valStr).toFixed(2)}%`;
             } else {
-              valStr = Number(p.value).toFixed(2);
+              displayVal = Number(valStr).toFixed(2);
             }
-            html += `<div style="display:flex; justify-content:space-between; gap:16px; margin:3px 0; font-size:11px;">
-              <span style="color:#64748b;">${p.marker} ${p.seriesName}</span>
-              <span style="font-weight:700; font-family:monospace; color:#0f172a;">${valStr}</span>
-            </div>`;
+          } else {
+            displayVal = '<span style="color:#94a3b8; font-weight:normal;">亏损/未披露</span>';
           }
+          html += `<div style="display:flex; justify-content:space-between; gap:16px; margin:3px 0; font-size:11px;">
+            <span style="color:#64748b;">${p.marker} ${p.seriesName}</span>
+            <span style="font-weight:700; font-family:monospace; color:#0f172a;">${displayVal}</span>
+          </div>`;
         });
         return html;
       }
     },
     grid: {
-      left: 48,
-      right: mode === 'all' ? 146 : 50,
-      top: 36,
+      left: 52,
+      right: mode === 'all' ? 172 : 54,
+      top: 50,
       bottom: 45
     },
     xAxis: {
