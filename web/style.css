@@ -193,42 +193,150 @@ body {
   white-space: nowrap;
 }
 
-/* 中等逻辑宽度 (Windows 高缩放 / 小屏) 下头部让步：先隐藏"行情基准"标签 */
+/* 头部动态弹性自适应（兼容 1080p 125%/150% 缩放、笔记本与小屏） */
+.nav-left {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+
+.market-datetime-pill {
+  flex-shrink: 1;
+}
+
+.macro-compass-pill {
+  flex-shrink: 2;
+  min-width: 0;
+}
+
+.nav-metrics {
+  flex-shrink: 1;
+  min-width: 0;
+}
+
+.nav-right {
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+/* 宽屏过渡档 (< 1720px): 隐藏次要文本标签 */
 @media (max-width: 1720px) {
   .market-datetime-pill .dt-label {
     display: none;
   }
 }
 
-/* 更窄时压缩罗盘文字，保证统计看板与徽章完整显示 */
-@media (max-width: 1520px) {
+/* 中等视口档 (< 1560px): 压缩时间胶囊与罗盘 */
+@media (max-width: 1560px) {
+  .top-nav {
+    padding: 0 12px;
+  }
+  .nav-left {
+    gap: 8px;
+  }
   .market-datetime-pill {
     gap: 6px;
-    padding: 4px 8px;
+    padding: 3px 8px;
+    font-size: 11.5px;
   }
   .compass-text {
-    max-width: 190px;
+    max-width: 180px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+  .nav-metrics {
+    gap: 10px;
+    padding: 4px 10px;
+  }
 }
 
-/* 极窄逻辑宽度：进一步压缩导航间距与统计看板，防止头部溢出 */
-@media (max-width: 1400px) {
-  .nav-left {
-    gap: 8px;
+/* 紧凑档 (< 1420px): 隐藏次要统计与罗盘文字，优先保留核心指标与添加按钮 */
+@media (max-width: 1420px) {
+  .brand-sub {
+    display: none;
   }
   .nav-tab-btn {
     padding: 0 8px;
-    font-size: 11px;
+    font-size: 11.5px;
+  }
+  .macro-compass-pill {
+    padding: 4px 6px;
+  }
+  .compass-text {
+    max-width: 110px;
   }
   .nav-metrics {
     gap: 8px;
-    padding: 5px 10px;
+    padding: 4px 8px;
+  }
+  .metric-item span:first-child {
+    font-size: 10.5px;
   }
   .metric-val {
-    font-size: 13px;
+    font-size: 12.5px;
+  }
+  /* 隐藏平盘统计，腾挪空间给涨跌与标的数 */
+  .nav-metrics .metric-item:nth-of-type(4),
+  .nav-metrics .metric-divider:nth-of-type(3) {
+    display: none;
+  }
+}
+
+/* 极小屏幕/高缩放档 (< 1260px): 时间胶囊紧凑化、罗盘图标化、保留添加按钮 */
+@media (max-width: 1260px) {
+  .top-nav {
+    padding: 0 8px;
+  }
+  .brand-main {
+    font-size: 13.5px;
+  }
+  .main-nav-tabs {
+    margin-left: 4px;
+    padding: 2px;
+  }
+  .nav-tab-btn {
+    padding: 0 6px;
+    font-size: 11px;
+    gap: 4px;
+  }
+  .market-datetime-pill {
+    padding: 3px 6px;
+    font-size: 11px;
+  }
+  .market-datetime-pill .pulse-dot {
+    display: none;
+  }
+  .compass-text {
+    display: none;
+  }
+  .macro-compass-pill {
+    padding: 4px 6px;
+  }
+  .nav-metrics {
+    gap: 6px;
+    padding: 3px 6px;
+  }
+  .metric-divider {
+    display: none;
+  }
+  .nav-right .btn-primary {
+    padding: 0 10px;
+    font-size: 11.5px;
+  }
+}
+
+/* 超窄逻辑宽度 (< 1080px): 仅显示关键上涨/下跌数，确保添加按钮绝对可见 */
+@media (max-width: 1080px) {
+  .nav-metrics .metric-item:nth-of-type(1),
+  .nav-metrics .metric-divider:nth-of-type(1) {
+    display: none;
+  }
+  .edition-tag {
+    display: none;
+  }
+  .market-datetime-pill #market-full-datetime {
+    display: none;
   }
 }
 
@@ -2443,5 +2551,425 @@ body {
   flex: 1;
   height: calc(100vh - 56px);
   overflow: hidden;
+}
+
+
+
+/* ========================================================
+   AIHOT 行业信息栏目专用高质感金融终端样式
+   ======================================================== */
+.main-nav-tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: #f1f5f9;
+  padding: 3px;
+  border-radius: 8px;
+  border: 1px solid var(--border-medium);
+  height: 36px;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  margin-left: 8px;
+}
+
+.nav-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  line-height: 28px;
+  padding: 0 12px;
+  font-size: 12px;
+  font-weight: 700;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+
+.nav-tab-btn:hover {
+  color: var(--text-main);
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.nav-tab-btn.active {
+  background: #ffffff;
+  color: var(--accent-blue);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+}
+
+.tab-badge-aihot {
+  font-size: 9px;
+  font-weight: 800;
+  padding: 1px 5px;
+  background: linear-gradient(135deg, #2563eb, #7c3aed);
+  color: #ffffff;
+  border-radius: 10px;
+  letter-spacing: 0.5px;
+}
+
+.view-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  height: calc(100vh - 56px);
+  overflow: hidden;
+}
+
+/* 行业信息主体布局 */
+.industry-layout {
+  display: grid;
+  grid-template-columns: 63% 37%;
+  gap: 16px;
+  padding: 14px 18px;
+  height: calc(100vh - 120px);
+  overflow: hidden;
+}
+
+.industry-main-feed {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow-y: auto;
+  gap: 12px;
+  padding-right: 6px;
+}
+
+.industry-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  height: 100%;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+/* 行业顶部 Banner */
+.industry-lead-banner {
+  background: linear-gradient(90deg, #eff6ff 0%, #ffffff 100%);
+  border: 1px solid #bfdbfe;
+  border-radius: var(--radius-md);
+  padding: 12px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 2px;
+}
+
+.lead-title-box {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.lead-main-title {
+  font-size: 13px;
+  font-weight: 800;
+  color: #1e3a8a;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.lead-desc-text {
+  font-size: 11.5px;
+  color: #334155;
+  line-height: 1.45;
+}
+
+.lead-stat-pills {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.stat-pill {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #dbeafe;
+  padding: 4px 10px;
+  border-radius: 6px;
+  min-width: 65px;
+}
+
+.stat-pill-num {
+  font-family: var(--font-mono);
+  font-weight: 800;
+  font-size: 14px;
+  color: var(--accent-blue);
+}
+
+.stat-pill-lbl {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+/* 行业情报卡片 */
+.industry-card {
+  background: #ffffff;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: all 0.15s ease;
+  position: relative;
+}
+
+.industry-card:hover {
+  border-color: #93c5fd;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.08);
+  transform: translateY(-1px);
+}
+
+.industry-card.is-hot {
+  border-left: 4px solid #ef4444;
+}
+
+.card-top-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.meta-tags-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.cat-pill {
+  font-size: 11px;
+  font-weight: 700;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+  padding: 2px 7px;
+  border-radius: 4px;
+}
+
+.cat-count-pill {
+  font-size: 10.5px;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  opacity: 0.85;
+  margin-left: 2px;
+}
+
+.auth-tag {
+  font-size: 10.5px;
+  font-weight: 600;
+  background: #f8fafc;
+  color: #475569;
+  border: 1px solid var(--border-medium);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.card-time {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.card-title-text {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.4;
+}
+
+.card-content-text {
+  font-size: 12px;
+  color: #475569;
+  line-height: 1.5;
+}
+
+/* AI 打分胶囊 */
+.score-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-weight: 800;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.score-badge.score-high {
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+}
+
+.score-badge.score-medium {
+  background: #fef3c7;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.card-impact-box {
+  background: #f8fafc;
+  border-left: 3px solid #3b82f6;
+  padding: 6px 10px;
+  border-radius: 0 4px 4px 0;
+  font-size: 11px;
+  color: #334155;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.impact-label {
+  font-weight: 700;
+  color: #1e40af;
+  white-space: nowrap;
+}
+
+/* 关联自选股标签 */
+.card-matched-stocks {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 2px;
+  padding-top: 6px;
+  border-top: 1px dashed var(--border-subtle);
+}
+
+.matched-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.matched-stock-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #0f172a;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.matched-stock-pill:hover {
+  background: #eff6ff;
+  border-color: #2563eb;
+  color: #2563eb;
+  transform: translateY(-1px);
+}
+
+.stock-pill-code {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+/* 侧边栏卡片通用容器 */
+.side-panel-card {
+  background: #ffffff;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.side-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: 8px;
+}
+
+.side-panel-title {
+  font-size: 13px;
+  font-weight: 800;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.daily-brief-item {
+  border-bottom: 1px solid #f1f5f9;
+  padding-bottom: 10px;
+}
+
+.daily-brief-item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.daily-headline {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 3px;
+}
+
+.daily-summary {
+  font-size: 11.5px;
+  color: #475569;
+  line-height: 1.45;
+  margin-bottom: 4px;
+}
+
+.source-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 380px;
+  overflow-y: auto;
+}
+
+.source-item-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #f8fafc;
+  padding: 5px 8px;
+  border-radius: 4px;
+  border: 1px solid #e2e8f0;
+  font-size: 11px;
+}
+
+.source-name-left {
+  font-weight: 600;
+  color: #334155;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.source-type-badge {
+  font-size: 9.5px;
+  color: #2563eb;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  padding: 1px 4px;
+  border-radius: 3px;
 }
 
