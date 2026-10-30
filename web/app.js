@@ -868,6 +868,20 @@ function renderStockHistoryChart() {
   let yAxisConfig = [];
   let seriesConfig = [];
 
+  // 选中高亮与未选中暗色淡出全局样式规范
+  const sharedBlurStyle = {
+    lineStyle: {
+      opacity: 0.12,
+      width: 1.2
+    },
+    itemStyle: {
+      opacity: 0.08
+    },
+    areaStyle: {
+      opacity: 0.015
+    }
+  };
+
   // 1. 股票走势线：半透明科技经典蓝 + 优雅羽化渐变底衬，作为全局走势主基石
   const priceSeriesDef = {
     name: '自上市至今走势',
@@ -888,7 +902,23 @@ function renderStockHistoryChart() {
         { offset: 0.7, color: 'rgba(29, 78, 216, 0.05)' },
         { offset: 1, color: 'rgba(29, 78, 216, 0.00)' }
       ])
-    }
+    },
+    emphasis: {
+      focus: 'series',
+      blurScope: 'coordinateSystem',
+      lineStyle: {
+        width: 4.2,
+        shadowColor: 'rgba(29, 78, 216, 0.45)',
+        shadowBlur: 10
+      },
+      areaStyle: {
+        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+          { offset: 0, color: 'rgba(29, 78, 216, 0.38)' },
+          { offset: 1, color: 'rgba(29, 78, 216, 0.05)' }
+        ])
+      }
+    },
+    blur: sharedBlurStyle
   };
 
   // 2. 市盈率 PE 走势线：高饱和赤红 + 平滑插值 + 缺失无缝贯穿 (connectNulls)
@@ -904,7 +934,17 @@ function renderStockHistoryChart() {
     lineStyle: {
       color: '#dc2626',
       width: 2.2
-    }
+    },
+    emphasis: {
+      focus: 'series',
+      blurScope: 'coordinateSystem',
+      lineStyle: {
+        width: 4.2,
+        shadowColor: 'rgba(220, 38, 38, 0.5)',
+        shadowBlur: 12
+      }
+    },
+    blur: sharedBlurStyle
   };
 
   // 3. 市净率 PB 走势线：翡翠青绿 + 独立纵轴刻度防压扁 + 连续贯穿
@@ -920,7 +960,17 @@ function renderStockHistoryChart() {
     lineStyle: {
       color: '#059669',
       width: 2.2
-    }
+    },
+    emphasis: {
+      focus: 'series',
+      blurScope: 'coordinateSystem',
+      lineStyle: {
+        width: 4.2,
+        shadowColor: 'rgba(5, 150, 105, 0.5)',
+        shadowBlur: 12
+      }
+    },
+    blur: sharedBlurStyle
   };
 
   // 4. 净资产收益率 ROE：尊贵紫 + 鲜明阶梯 + 微透明收益率基底色块 (极大提升肉眼辨识度)
@@ -942,7 +992,25 @@ function renderStockHistoryChart() {
     },
     areaStyle: {
       color: 'rgba(124, 58, 237, 0.07)'
-    }
+    },
+    emphasis: {
+      focus: 'series',
+      blurScope: 'coordinateSystem',
+      lineStyle: {
+        width: 3.8,
+        shadowColor: 'rgba(124, 58, 237, 0.5)',
+        shadowBlur: 12
+      },
+      itemStyle: {
+        color: '#7c3aed',
+        borderWidth: 2,
+        borderColor: '#fff'
+      },
+      areaStyle: {
+        color: 'rgba(124, 58, 237, 0.22)'
+      }
+    },
+    blur: sharedBlurStyle
   };
 
   if (mode === 'all') {
@@ -1071,8 +1139,8 @@ function renderStockHistoryChart() {
     legend: {
       show: true,
       top: 6,
-      left: 70,
-      itemGap: 14,
+      left: 'center',
+      itemGap: 16,
       itemWidth: 16,
       itemHeight: 9,
       textStyle: {
@@ -1156,6 +1224,48 @@ function renderStockHistoryChart() {
 
   state.chartInstance.setOption(option, true);
   state.chartInstance.resize();
+
+  // 绑定交互：点击曲线或图例支持持久高亮锁定该线，其他变暗淡；点击空白区域还原
+  if (!state.chartInstance.__bindInteractiveEvents) {
+    state.chartInstance.__bindInteractiveEvents = true;
+
+    // 点击某条折线时切换锁定高亮
+    state.chartInstance.on('click', function(params) {
+      if (!params || !params.seriesName) return;
+      if (state.lockedSeriesName === params.seriesName) {
+        state.lockedSeriesName = null;
+        state.chartInstance.dispatchAction({ type: 'downplay' });
+      } else {
+        state.lockedSeriesName = params.seriesName;
+        state.chartInstance.dispatchAction({ type: 'downplay' });
+        state.chartInstance.dispatchAction({
+          type: 'highlight',
+          seriesName: params.seriesName
+        });
+      }
+    });
+
+    // 点击空白背景时取消锁定恢复全部
+    state.chartInstance.getZr().on('click', function(event) {
+      if (!event.target) {
+        state.lockedSeriesName = null;
+        state.chartInstance.dispatchAction({ type: 'downplay' });
+      }
+    });
+  }
+
+  // 若当前已有锁定线，在重绘后恢复锁定高亮状态
+  if (state.lockedSeriesName) {
+    setTimeout(() => {
+      if (state.chartInstance && state.lockedSeriesName) {
+        state.chartInstance.dispatchAction({
+          type: 'highlight',
+          seriesName: state.lockedSeriesName
+        });
+      }
+    }, 60);
+  }
+
   setTimeout(() => {
     if (state.chartInstance) state.chartInstance.resize();
   }, 200);
