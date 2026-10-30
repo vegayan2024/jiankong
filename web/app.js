@@ -637,6 +637,9 @@ async function loadStockDetail(code) {
     `;
   }
 
+  // 立即并行触发自上市至今历史走势线、PB、PE与ROE图表加载，杜绝被资讯公告串行阻塞
+  loadStockHistoryAndChart(code);
+
   // Fetch detailed announcements and news for this asset
   try {
     const resp = await fetch(`/api/stock/${encodeURIComponent(code)}`);
@@ -693,9 +696,6 @@ async function loadStockDetail(code) {
   } catch (err) {
     console.warn('获取标的详情异常:', err);
   }
-
-  // 触发自上市至今历史走势线、PB、PE与ROE图表加载
-  loadStockHistoryAndChart(code);
 }
 
 // ==========================================
@@ -706,6 +706,12 @@ async function loadStockHistoryAndChart(code) {
   
   if (el.chartLoading) el.chartLoading.style.display = 'flex';
   if (el.chartStatusPill) el.chartStatusPill.textContent = '正在获取历史走势与估值...';
+
+  // 重置 HUD 状态，避免残留前序标的数值
+  if (el.hudPriceVal) el.hudPriceVal.textContent = '-';
+  if (el.hudPbVal) el.hudPbVal.textContent = '-';
+  if (el.hudPeVal) el.hudPeVal.textContent = '-';
+  if (el.hudRoeVal) el.hudRoeVal.textContent = '-%';
 
   try {
     let data = state.stockHistoryCache.get(code);
@@ -1089,6 +1095,9 @@ function renderStockHistoryChart() {
 
   state.chartInstance.setOption(option, true);
   state.chartInstance.resize();
+  setTimeout(() => {
+    if (state.chartInstance) state.chartInstance.resize();
+  }, 200);
 }
 
 // ==========================================

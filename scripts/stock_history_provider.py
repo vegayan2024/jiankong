@@ -230,11 +230,11 @@ class KlineCache:
             with self._conn() as conn:
                 rows = conn.execute(
                     "SELECT date, open, high, low, close, volume FROM kline "
-                    "WHERE symbol=? AND freq=? ORDER BY date",
+                    "WHERE symbol=? AND freq=? AND close IS NOT NULL AND close > 0 ORDER BY date",
                     (symbol, freq)
                 ).fetchall()
             return [
-                {"date": r[0], "open": r[1], "high": r[2], "low": r[3], "close": r[4], "volume": r[5]}
+                {"date": r[0], "open": r[1] if r[1] is not None else r[4], "high": r[2] if r[2] is not None else r[4], "low": r[3] if r[3] is not None else r[4], "close": float(r[4]), "volume": float(r[5] or 0.0)}
                 for r in rows
             ]
         except Exception:
@@ -243,10 +243,13 @@ class KlineCache:
     def upsert(self, symbol: str, freq: str, rows: List[Dict[str, Any]], source: str):
         if not rows:
             return
+        valid_rows = [r for r in rows if r.get("close") is not None and float(r["close"]) > 0]
+        if not valid_rows:
+            return
         data = [
             (symbol, freq, r["date"], r.get("open"), r.get("high"), r.get("low"),
-             r.get("close"), r.get("volume"), source)
-            for r in rows
+             float(r["close"]), r.get("volume"), source)
+            for r in valid_rows
         ]
         try:
             with self._conn() as conn:
@@ -330,21 +333,29 @@ def _fetch_kline_tushare(ts_code: str, freq: str) -> List[Dict[str, Any]]:
         df = ts.pro_bar(ts_code=ts_code, adj="qfq")
     if df is None or df.empty:
         raise RuntimeError("tushare 返回空数据")
+    import pandas as pd
     out: List[Dict[str, Any]] = []
     # tushare 默认按日期降序，统一转升序
     for _, row in df.iterrows():
         try:
             d = _norm_date(row.get("trade_date", ""))
             close = row.get("close")
-            if not d or close is None:
+            if not d or close is None or pd.isna(close):
                 continue
+            close_val = float(close)
+            if close_val <= 0 or pd.isna(close_val):
+                continue
+            open_raw = row.get("open")
+            high_raw = row.get("high")
+            low_raw = row.get("low")
+            vol_raw = row.get("vol") if row.get("vol") is not None else row.get("volume")
             out.append({
                 "date": d,
-                "open": float(row.get("open")) if row.get("open") is not None else None,
-                "high": float(row.get("high")) if row.get("high") is not None else None,
-                "low": float(row.get("low")) if row.get("low") is not None else None,
-                "close": float(close),
-                "volume": float(row.get("volume")) if row.get("volume") is not None else 0.0
+                "open": float(open_raw) if open_raw is not None and not pd.isna(open_raw) else close_val,
+                "high": float(high_raw) if high_raw is not None and not pd.isna(high_raw) else close_val,
+                "low": float(low_raw) if low_raw is not None and not pd.isna(low_raw) else close_val,
+                "close": close_val,
+                "volume": float(vol_raw) if vol_raw is not None and not pd.isna(vol_raw) else 0.0
             })
         except Exception:
             continue
@@ -495,9 +506,52 @@ def get_kline_cached(info: Dict[str, str], freq: str) -> List[Dict[str, Any]]:
     return kline_cache.read(cache_key, freq)
 
 
-# ======================== 估值与财务指标 (保持原有逻辑) ========================
-def fetch_valuation_history(symbol: str) -> List[Dict[str, Any]]:
-    """获取标的市盈率 PE(TTM) 与市净率 PB(MRQ) 历史时序 (东财数据中心)"""
+# ======================== 估值与财务指标 (TuShare优先 + 东财/同花顺备用) ========================
+def _fetch_valuation_tushare(ts_code: str) -> List[Dict[str, Any]]:
+    """优先使用 TuShare daily_basic 获取 PB(MRQ) 和 PE(TTM) 历史时序 (毫秒级直取)。"""
+    if not TUSHARE_TOKEN:
+        return []
+    try:
+        import tushare as ts
+        import pandas as pd
+        pro = ts.pro_api(TUSHARE_TOKEN)
+        df = pro.daily_basic(ts_code=ts_code, fields="trade_date,close,pe_ttm,pb,total_mv")
+        if df is None or df.empty:
+            return []
+        result = []
+        for _, row in df.iterrows():
+            d = _norm_date(str(row.get("trade_date", "")))
+            if not d:
+                continue
+            pe = row.get("pe_ttm")
+            pb = row.get("pb")
+            mv = row.get("total_mv")
+            pe_val = float(pe) if pe is not None and not pd.isna(pe) and float(pe) > 0 and float(pe) < 500 else None
+            pb_val = float(pb) if pb is not None and not pd.isna(pb) and float(pb) > 0 and float(pb) < 100 else None
+            mv_val = round(float(mv) / 10000.0, 2) if mv is not None and not pd.isna(mv) else None  # 万元转亿元
+            if pe_val is not None or pb_val is not None:
+                result.append({
+                    "date": d,
+                    "pe": pe_val,
+                    "pb": pb_val,
+                    "market_cap": mv_val
+                })
+        result.sort(key=lambda x: x["date"])
+        return result
+    except Exception as e:
+        logger.warning(f"TuShare daily_basic 拉取 {ts_code} 估值时序异常: {e}")
+        return []
+
+
+def fetch_valuation_history(symbol: str, full_code: str = "") -> List[Dict[str, Any]]:
+    """获取标的市盈率 PE(TTM) 与市净率 PB(MRQ) 历史时序 (TuShare 优先，东财数据中心兜底)"""
+    # 1. 优先走 TuShare 毫秒级直取
+    if full_code and TUSHARE_TOKEN:
+        val_ts = _fetch_valuation_tushare(full_code)
+        if val_ts:
+            return val_ts
+
+    # 2. 东财数据中心备用 (带严格限流与超时防护)
     url = (
         f"https://datacenter-web.eastmoney.com/api/data/v1/get?"
         f"reportName=RPT_VALUEANALYSIS_DET&"
@@ -511,7 +565,7 @@ def fetch_valuation_history(symbol: str) -> List[Dict[str, Any]]:
 
     result = []
     try:
-        resp = em_get(url, headers=headers, timeout=8.0)  # 走东财防封闸门
+        resp = em_get(url, headers=headers, timeout=6.0)
         if resp.status_code == 200:
             res_obj = resp.json().get("result")
             if res_obj and res_obj.get("data"):
@@ -528,15 +582,63 @@ def fetch_valuation_history(symbol: str) -> List[Dict[str, Any]]:
                             "market_cap": round(float(mkt_cap) / 1e8, 2) if mkt_cap else None
                         })
     except Exception as e:
-        logger.warning(f"获取 {symbol} 估值时序异常: {e}")
+        logger.warning(f"获取 {symbol} 东财估值时序异常: {e}")
     return result
 
 
-def fetch_roe_history(symbol: str) -> List[Dict[str, Any]]:
-    """获取标的历年历季净资产收益率 (ROE) 报告期时序 (优先同花顺 F10 权威源)"""
-    result = []
+def _fetch_roe_tushare(ts_code: str) -> List[Dict[str, Any]]:
+    """优先使用 TuShare fina_indicator 获取 ROE、BPS、EPS 报告期时序。"""
+    if not TUSHARE_TOKEN:
+        return []
+    try:
+        import tushare as ts
+        import pandas as pd
+        pro = ts.pro_api(TUSHARE_TOKEN)
+        df = pro.fina_indicator(ts_code=ts_code, fields="end_date,roe,bps,eps")
+        if df is None or df.empty:
+            return []
+        result = []
+        for _, row in df.iterrows():
+            d_raw = str(row.get("end_date", "")).strip()
+            if not d_raw:
+                continue
+            d = _norm_date(d_raw)
+            roe = row.get("roe")
+            bps = row.get("bps")
+            eps = row.get("eps")
+            roe_val = round(float(roe), 2) if roe is not None and not pd.isna(roe) else None
+            bps_val = round(float(bps), 2) if bps is not None and not pd.isna(bps) else None
+            eps_val = round(float(eps), 4) if eps is not None and not pd.isna(eps) else None
+            if roe_val is not None or bps_val is not None:
+                result.append({
+                    "date": d,
+                    "roe": roe_val,
+                    "eps": eps_val,
+                    "bps": bps_val,
+                    "source": "TUSHARE"
+                })
+        # 按报告期升序
+        result.sort(key=lambda x: x["date"])
+        # 去除重复报告期
+        dedup = {}
+        for r in result:
+            dedup[r["date"]] = r
+        return sorted(list(dedup.values()), key=lambda x: x["date"])
+    except Exception as e:
+        logger.warning(f"TuShare fina_indicator 拉取 {ts_code} ROE 异常: {e}")
+        return []
 
-    # 1. 优先调用同花顺 F10 财务摘要 (THS)
+
+def fetch_roe_history(symbol: str, full_code: str = "") -> List[Dict[str, Any]]:
+    """获取标的历年历季净资产收益率 (ROE) 报告期时序 (优先 TuShare 权威财务指标，次选同花顺 F10/东财)"""
+    # 1. 优先调用 TuShare fina_indicator 官方财务指标
+    if full_code and TUSHARE_TOKEN:
+        roe_ts = _fetch_roe_tushare(full_code)
+        if roe_ts:
+            return roe_ts
+
+    result = []
+    # 2. 次选同花顺 F10 财务摘要 (THS)
     try:
         import akshare as ak
         df_ths = ak.stock_financial_abstract_ths(symbol=symbol)
@@ -583,7 +685,7 @@ def fetch_roe_history(symbol: str) -> List[Dict[str, Any]]:
     except Exception as e:
         logger.debug(f"同花顺 F10 拉取 {symbol} ROE 偶发重试: {e}")
 
-    # 2. 次选备用源 (东财财务摘要)
+    # 3. 三选备用源 (东财财务摘要)
     if not result:
         try:
             import akshare as ak
@@ -676,18 +778,19 @@ def get_stock_history_and_valuation(code: str) -> Dict[str, Any]:
 
     # 3. 在线并发拉取行情与指标 (价格时序走 SQLite 缓存 + 三级降级链)
     is_equity = (atype == "stock")
+    full_code = info["full_code"]
     with ThreadPoolExecutor(max_workers=4) as executor:
         f_month = executor.submit(get_kline_cached, info, "month")
         f_day = executor.submit(get_kline_cached, info, "day")
-        f_val = executor.submit(fetch_valuation_history, sym) if is_equity and market != "HK" else None
-        f_roe = executor.submit(fetch_roe_history, sym) if is_equity and market != "HK" else None
+        f_val = executor.submit(fetch_valuation_history, sym, full_code) if is_equity and market != "HK" else None
+        f_roe = executor.submit(fetch_roe_history, sym, full_code) if is_equity and market != "HK" else None
 
         monthly_klines = f_month.result() or []
         daily_klines = f_day.result() or []
         val_list = f_val.result() if f_val else []
         roe_list = f_roe.result() if f_roe else []
 
-    # 针对东财估值记录未覆盖的历史较早月份，结合财报 BPS/EPS 与月K收盘价回溯生成早期估值线
+    # 针对历史较早月份，结合财报 BPS/EPS 与月K收盘价回溯生成早期估值线
     if monthly_klines and roe_list:
         bps_map = {r["date"]: r["bps"] for r in roe_list if r.get("bps")}
         eps_map = {r["date"]: r["eps"] for r in roe_list if r.get("eps")}
@@ -696,7 +799,10 @@ def get_stock_history_and_valuation(code: str) -> Dict[str, Any]:
         val_date_set = {v["date"] for v in val_list}
         synthetic_val = []
         for k in monthly_klines:
-            d = k["date"]
+            d = k.get("date")
+            close_val = k.get("close")
+            if not d or close_val is None or float(close_val) <= 0:
+                continue
             if d not in val_date_set:
                 matched_rd = None
                 for rd in reversed(report_dates):
@@ -706,8 +812,8 @@ def get_stock_history_and_valuation(code: str) -> Dict[str, Any]:
                 if matched_rd:
                     bps = bps_map.get(matched_rd)
                     eps = eps_map.get(matched_rd)
-                    calc_pb = round(k["close"] / bps, 2) if bps and bps > 0 else None
-                    calc_pe = round(k["close"] / eps, 2) if eps and eps > 0 else None
+                    calc_pb = round(float(close_val) / float(bps), 2) if bps and float(bps) > 0 else None
+                    calc_pe = round(float(close_val) / float(eps), 2) if eps and float(eps) > 0 else None
                     if calc_pb or calc_pe:
                         synthetic_val.append({
                             "date": d,
