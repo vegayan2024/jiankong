@@ -54,7 +54,7 @@ class MacroCompassEngine:
                 "bias": "小盘",
                 "bias_code": "small",  # large / small / equal
                 "bias_score": 0.65,     # [-1(大盘), 1(小盘)]
-                "benchmark": "中证2000/中证1000 vs 沪深300",
+                "benchmark": "国证2000/中证1000 vs 沪深300",
                 "desc": "中小盘相对强弱动量偏强，流动性边际改善弹性占优"
             },
             "growth_value_style": {
@@ -80,11 +80,15 @@ class MacroCompassEngine:
 
     def update_from_quotes(self, quotes: Dict[str, Any]):
         """
-        利用盘中实时行情微调风格相对强弱动量（日内动量微调，闭环联动中证2000、中证红利与AH溢价指数）
+        利用盘中实时行情微调风格相对强弱动量（日内动量微调，闭环联动国证2000、中证红利与AH溢价指数）
         """
-        # 1. 大小盘相对强弱：优先取中证2000 (000932.SH)，次选中证1000 (000852.SH) vs 沪深300 (000300.SH)
+        # 1. 大小盘相对强弱：优先取国证2000 (399303.SZ)，次选中证1000 (000852.SH) vs 沪深300 (000300.SH)
         csi300 = quotes.get("000300.SH") or quotes.get("000300")
-        csi_small = quotes.get("000932.SH") or quotes.get("000852.SH")
+        csi_small = (
+            quotes.get("399303.SZ") or quotes.get("399303") or
+            quotes.get("000852.SH") or quotes.get("000852") or
+            quotes.get("159531.SZ") or quotes.get("563300.SH")
+        )
         if csi300 and csi_small:
             c300_pct = float(csi300.get("pct_change", csi300.get("change_pct", 0.0)))
             small_pct = float(csi_small.get("pct_change", csi_small.get("change_pct", 0.0)))

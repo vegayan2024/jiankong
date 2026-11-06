@@ -994,11 +994,13 @@ async def get_stock_history_endpoint(code: str):
     """
     try:
         from scripts.stock_history_provider import get_stock_history_and_valuation
-        # 尝试传入实时 prev_close，用于校准除权除息导致的前复权漂移
+        # 传入实时 prev_close 与日期，用于严格按交易日对齐校准除权除息漂移
         latest_prev_close = None
+        prev_trade_date = None
         if code in cached_quotes:
-            latest_prev_close = cached_quotes[code].get("prev_close")
-        res = await asyncio.to_thread(get_stock_history_and_valuation, code, latest_prev_close)
+            q = cached_quotes[code]
+            latest_prev_close = q.get("prev_close")
+        res = await asyncio.to_thread(get_stock_history_and_valuation, code, latest_prev_close, prev_trade_date)
         return res
     except Exception as e:
         logger.error(f"获取标的 {code} 历史走势与估值失败: {e}", exc_info=True)

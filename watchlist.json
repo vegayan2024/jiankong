@@ -112,10 +112,10 @@
     "added_at": "2026-09-28 14:59:20"
   },
   {
-    "code": "000932.SH",
-    "symbol": "000932",
-    "market": "SH",
-    "name": "中证2000",
+    "code": "399303.SZ",
+    "symbol": "399303",
+    "market": "SZ",
+    "name": "国证2000",
     "group": "主要指数",
     "asset_type": "index",
     "enabled": true,
@@ -123,7 +123,7 @@
     "monitor_announcement": false,
     "monitor_intraday": true,
     "monitor_news": true,
-    "added_at": "2026-11-06 11:00:00"
+    "added_at": "2026-11-06 12:00:00"
   },
   {
     "code": "000922.SH",

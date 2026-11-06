@@ -15,7 +15,7 @@
 import json
 import logging
 from pathlib import Path
-from datetime import datetime, date, time as dtime
+from datetime import datetime, date, time as dtime, timedelta
 from typing import Dict, Any, Optional
 
 logger = logging.getLogger("MarketSession")
@@ -91,18 +91,68 @@ def is_trading_day(d: Optional[date] = None) -> bool:
     return d.strftime("%Y-%m-%d") in trading_dates
 
 
+# 港股全年交易日内存缓存 (年份 -> 交易日集合)
+_HK_YEAR_DATES_MEM: Dict[int, set] = {}
+
+# 港股 2024-2027 年法定休市日清单 (完全独立于 BaoStock 与 A股日历)
+HK_KNOWN_HOLIDAYS = {
+    # 2024
+    "2024-01-01", "2024-02-12", "2024-02-13", "2024-03-29", "2024-04-01",
+    "2024-04-04", "2024-05-01", "2024-05-15", "2024-06-10", "2024-07-01",
+    "2024-09-18", "2024-10-01", "2024-10-11", "2024-12-25", "2024-12-26",
+    # 2025
+    "2025-01-01", "2025-01-29", "2025-01-30", "2025-01-31", "2025-04-04",
+    "2025-04-18", "2025-04-21", "2025-05-01", "2025-05-05", "2025-05-31",
+    "2025-07-01", "2025-10-01", "2025-10-07", "2025-10-29", "2025-12-25", "2025-12-26",
+    # 2026
+    "2026-01-01", "2026-02-17", "2026-02-18", "2026-02-19", "2026-04-03",
+    "2026-04-06", "2026-05-01", "2026-05-25", "2026-06-19", "2026-07-01",
+    "2026-09-28", "2026-10-01", "2026-10-19", "2026-12-25", "2026-12-28",
+}
+
+
 def is_hk_trading_day(d: Optional[date] = None) -> bool:
-    """判断是否为港股交易日 (排除周末与已知港股法定节假日)"""
+    """判断是否为港股交易日 (独立港股法定节假日判定，严禁耦合依赖 BaoStock A股日历)"""
     d = d or date.today()
     if _is_weekend(d):
         return False
-    # 常用已知港股休市固定节假日（元旦、劳动节、国庆、圣诞节等）
+    d_str = d.strftime("%Y-%m-%d")
+    if d_str in HK_KNOWN_HOLIDAYS:
+        return False
+    # 检查磁盘独立港股日历缓存
+    cache_file = CACHE_DIR / f"hk_trade_dates_{d.year}.json"
+    if cache_file.exists():
+        try:
+            if d.year not in _HK_YEAR_DATES_MEM:
+                _HK_YEAR_DATES_MEM[d.year] = set(json.loads(cache_file.read_text(encoding="utf-8")))
+            return d_str in _HK_YEAR_DATES_MEM[d.year]
+        except Exception:
+            pass
+    # 常用已知港股休市固定节假日（元旦、劳动节、特区成立日、国庆、圣诞节等）
     hk_fixed_holidays = {
         "01-01", "05-01", "07-01", "10-01", "12-25", "12-26"
     }
     if d.strftime("%m-%d") in hk_fixed_holidays:
         return False
     return True
+
+
+def get_prev_trading_date(as_of: Optional[date] = None, market: str = "SH") -> str:
+    """
+    返回指定市场在基准日期之前的最近一个已结束交易日 (YYYY-MM-DD)。
+    严格区分 A股交易日历与港股交易日历。
+    """
+    d = as_of or date.today()
+    check_day = d - timedelta(days=1)
+    for _ in range(15):
+        if market.upper() == "HK":
+            if is_hk_trading_day(check_day):
+                return check_day.strftime("%Y-%m-%d")
+        else:
+            if is_trading_day(check_day):
+                return check_day.strftime("%Y-%m-%d")
+        check_day -= timedelta(days=1)
+    return (d - timedelta(days=1)).strftime("%Y-%m-%d")
 
 
 def get_cn_session(now: Optional[datetime] = None) -> Dict[str, Any]:
@@ -145,7 +195,17 @@ def get_cn_session(now: Optional[datetime] = None) -> Dict[str, Any]:
 
 
 def get_hk_session(now: Optional[datetime] = None) -> Dict[str, Any]:
-    """返回 港股 (HKEX) 当前交易时段状态 (覆盖 11:30-12:00 及 15:00-16:00 交易时段)"""
+    """
+    返回 港股 (HKEX) 当前交易时段状态。
+    严格对齐港交所现行规则：
+    - 09:00 - 09:20: 开市前时段 / 竞价申报 (POS Auction)
+    - 09:20 - 09:30: 随机撮合与暂停阻断期 (Blocking Period)
+    - 09:30 - 12:00: 早市连续交易 (Morning Continuous Trading)
+    - 12:00 - 13:00: 午间休市 (Lunch Break)
+    - 13:00 - 16:00: 午市连续交易 (Afternoon Continuous Trading)
+    - 16:00 - 16:10: 收市竞价时段 (Closing Auction Session, CAS)
+    - 16:10 以后: 已收市
+    """
     now = now or datetime.now()
     d = now.date()
     t = now.time()
@@ -158,6 +218,7 @@ def get_hk_session(now: Optional[datetime] = None) -> Dict[str, Any]:
                 "session_label": "港股假期休市", "note": "港股法定节假日休市"}
 
     pos_open = dtime(9, 0)
+    pos_matching = dtime(9, 20)
     morning_open = dtime(9, 30)
     morning_close = dtime(12, 0)
     afternoon_open = dtime(13, 0)
@@ -166,10 +227,13 @@ def get_hk_session(now: Optional[datetime] = None) -> Dict[str, Any]:
 
     if t < pos_open:
         return {"is_trading_day": True, "is_trading": False, "session": "pre_open",
-                "session_label": "尚未开盘", "note": "开市前时段 9:00 开始"}
+                "session_label": "尚未开市", "note": "港交所开市前时段(POS) 9:00 开始"}
+    elif t < pos_matching:
+        return {"is_trading_day": True, "is_trading": False, "session": "pos_auction",
+                "session_label": "开市前竞价", "note": "9:00-9:20 港交所开市前申报竞价"}
     elif t < morning_open:
-        return {"is_trading_day": True, "is_trading": False, "session": "pre_open",
-                "session_label": "开市前竞价", "note": "9:30 开始连续竞价"}
+        return {"is_trading_day": True, "is_trading": False, "session": "pos_blocking",
+                "session_label": "撮合与暂停", "note": "9:20-9:30 港股随机撮合与阻断期"}
     elif t < morning_close:
         return {"is_trading_day": True, "is_trading": True, "session": "morning",
                 "session_label": "早市交易中", "note": "早市连续竞价 9:30-12:00"}
@@ -181,10 +245,10 @@ def get_hk_session(now: Optional[datetime] = None) -> Dict[str, Any]:
                 "session_label": "午市交易中", "note": "午市连续竞价 13:00-16:00"}
     elif t < cas_close:
         return {"is_trading_day": True, "is_trading": False, "session": "closing_auction",
-                "session_label": "收市竞价", "note": "收市竞价时段 16:00-16:10"}
+                "session_label": "收市竞价", "note": "收市竞价时段 16:00-16:10 (CAS)"}
     else:
         return {"is_trading_day": True, "is_trading": False, "session": "closed",
-                "session_label": "已收市", "note": "16:00/16:10 收市"}
+                "session_label": "已收市", "note": "16:10 港股收市"}
 
 
 def get_market_session(now: Optional[datetime] = None) -> Dict[str, Any]:
@@ -211,8 +275,8 @@ def get_market_session(now: Optional[datetime] = None) -> Dict[str, Any]:
         status_label = "港股交易中"
         session_label = f"港股{hk['session_label']} (A股{cn['session_label']})"
         status_icon = "🟢"
-    elif cn["session"] == "pre_open" or hk["session"] == "pre_open":
-        status_label = "集合竞价"
+    elif cn["session"] in ["pre_open", "call_auction"] or hk["session"] in ["pre_open", "pos_auction", "pos_blocking"]:
+        status_label = "开市前/竞价"
         session_label = f"A股{cn['session_label']} / 港股{hk['session_label']}"
         status_icon = "🟡"
     elif cn["session"] == "lunch" and hk["session"] == "lunch":

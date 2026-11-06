@@ -42,6 +42,16 @@ try:
 except Exception:
     pass
 
+try:
+    from scripts.market_session import get_prev_trading_date
+except ImportError:
+    try:
+        from market_session import get_prev_trading_date
+    except ImportError:
+        def get_prev_trading_date(as_of: Optional[date] = None, market: str = "SH") -> str:
+            d = as_of or date.today()
+            return (d - timedelta(days=1)).strftime("%Y-%m-%d")
+
 import requests
 from concurrent.futures import ThreadPoolExecutor
 
@@ -61,25 +71,29 @@ EM_SESSION.headers.update({
     "Referer": "https://data.eastmoney.com/",
     "Accept": "*/*",
 })
-EM_MIN_INTERVAL = 0.5  # 东财请求最小间隔秒 (由 1.0 优化至 0.5，大幅缩减排队时延)
-_em_last_call = [0.0]
+EM_MIN_INTERVAL = 0.5  # 东财请求最小物理间隔秒
+_next_allowed_time = [0.0]
 _em_lock = threading.Lock()
 
 
 def em_get(url: str, params=None, headers=None, timeout: float = 6.0) -> requests.Response:
-    """东财专用限流 GET：串行 + 最小间隔 + 随机抖动 + 超时安全，防止触发 WAF 封禁与线程假死。"""
-    acquired = _em_lock.acquire(timeout=4.0)
-    if not acquired:
-        logger.warning(f"获取东财限流锁超时 (4.0s)，跳过避免线程池阻塞: {url}")
-        raise TimeoutError("东财接口限流排队超时")
-    try:
-        wait = EM_MIN_INTERVAL - (time.time() - _em_last_call[0])
-        if wait > 0:
-            time.sleep(wait + random.uniform(0.02, 0.15))
-        return EM_SESSION.get(url, params=params, headers=headers, timeout=timeout)
-    finally:
-        _em_last_call[0] = time.time()
-        _em_lock.release()
+    """东财专用限流 GET：令牌桶预订模式（锁内领号计算时间戳，锁外休眠与网络IO）。
+    锁持有时间为微秒级（<0.01ms），杜绝多线程并发时的互斥锁排队超时；
+    同时严格保证发往东财的请求物理间隔 >= EM_MIN_INTERVAL。
+    """
+    with _em_lock:
+        now = time.monotonic()
+        target_time = max(now, _next_allowed_time[0])
+        wait_time = target_time - now
+        interval = EM_MIN_INTERVAL + random.uniform(0.02, 0.15)
+        _next_allowed_time[0] = target_time + interval
+
+    if wait_time > 15.0:
+        logger.warning(f"东财接口限流排队过长 ({wait_time:.1f}s > 15.0s)，快速失败避免线程堆积: {url}")
+        raise TimeoutError("东财接口限流队列过长")
+    if wait_time > 0:
+        time.sleep(wait_time)  # 在锁外休眠！绝不阻塞其他线程计算时间戳
+    return EM_SESSION.get(url, params=params, headers=headers, timeout=timeout)
 
 
 CACHE_DIR = Path(__file__).resolve().parent.parent / "scratch" / "history_cache"
@@ -110,6 +124,7 @@ def clean_symbol(code: str) -> Dict[str, str]:
         "000300.SH": ("sh000300", "000300", "SH", "index"),
         "000905.SH": ("sh000905", "000905", "SH", "index"),
         "000852.SH": ("sh000852", "000852", "SH", "index"),
+        "399303.SZ": ("sz399303", "399303", "SZ", "index"),
         "000932.SH": ("sh000932", "000932", "SH", "index"),
         "000922.SH": ("sh000922", "000922", "SH", "index"),
         "000688.SH": ("sh000688", "000688", "SH", "index"),
@@ -508,10 +523,12 @@ def fetch_kline_chain(info: Dict[str, str], freq: str) -> Tuple[List[Dict[str, A
     return [], "none"
 
 
-def get_kline_cached(info: Dict[str, str], freq: str, latest_prev_close: Optional[float] = None) -> List[Dict[str, Any]]:
+def get_kline_cached(info: Dict[str, str], freq: str, latest_prev_close: Optional[float] = None, prev_trade_date: Optional[str] = None) -> List[Dict[str, Any]]:
     """
     带 SQLite 本地缓存的 K线获取：
-    1. 校验最新除权除息漂移：若缓存尾部收盘价与实时 prev_close 偏离 > 5%，自动清空该标的旧缓存重新全量拉取。
+    1. 校验最新除权除息漂移：严格按同一交易日对齐比对缓存收盘价与实时 prev_close。
+       若偏离 > 0.1% (0.001)，自动清空该标的旧缓存重新全量拉取前复权时序；
+       若缓存最新日期早于上一交易日，属于正常增量待拉取而非除权，绝不跨日误杀。
     2. 本地缓存新鲜 (最新日期距今 <= 7 天) → 直接读缓存
     3. 否则走降级链全量拉取 → INSERT OR REPLACE 写入缓存 → 读全量返回
     4. 拉取全失败 → 读旧缓存兜底 (可能为空，绝不伪造)
@@ -519,16 +536,26 @@ def get_kline_cached(info: Dict[str, str], freq: str, latest_prev_close: Optiona
     cache_key = info["full_code"]
     cached = kline_cache.read(cache_key, freq)
 
-    # 校验最新除权除息导致的前复权漂移
+    # 校验最新除权除息导致的前复权漂移 (按同一交易日对齐校验，阈值收紧至 0.001)
     if cached and latest_prev_close and latest_prev_close > 0:
-        last_cached_close = cached[-1]["close"]
-        if abs(last_cached_close - latest_prev_close) / latest_prev_close > 0.05:
-            logger.warning(
-                f"{cache_key} 检测到除权除息价格漂移 (缓存Close: {last_cached_close}, 实时PrevClose: {latest_prev_close})，"
-                f"清空旧缓存并触发全量重拉"
-            )
-            kline_cache.invalidate(cache_key, freq)
-            cached = []
+        target_date = prev_trade_date or get_prev_trading_date(market=info.get("market", "SH"))
+        matched_row = None
+        for r in reversed(cached):
+            if r.get("date") == target_date:
+                matched_row = r
+                break
+        if matched_row and matched_row.get("close"):
+            cached_close = float(matched_row["close"])
+            drift = abs(cached_close - latest_prev_close) / latest_prev_close
+            # 漂移阈值收紧至 0.001 (0.1%)，同日对比下精准捕获现金分红与送转除权，绝不跨日误杀
+            if drift > 0.001:
+                logger.warning(
+                    f"{cache_key} ({freq}) 对齐交易日 {target_date} 检测到除权除息价格漂移 "
+                    f"(缓存Close: {cached_close}, 实时PrevClose: {latest_prev_close}, 偏离率: {drift*100:.2f}%)，"
+                    f"清空旧缓存并触发全量重拉"
+                )
+                kline_cache.invalidate(cache_key, freq)
+                cached = []
 
     maxd = kline_cache.max_date(cache_key, freq)
     if maxd and cached:
@@ -782,15 +809,15 @@ def fetch_roe_history(symbol: str, full_code: str = "") -> List[Dict[str, Any]]:
 
 
 def calculate_percentile(values: List[float], current: float) -> Optional[float]:
-    """计算当前数值在历史序列中的分位数百分比 (0~100%)"""
-    valid = [v for v in values if v is not None and v > 0]
-    if not valid or current is None or current <= 0:
+    """计算当前数值在历史序列中的分位数百分比 (0~100%)，自动剔除非正数与 None，保证公允排序"""
+    valid = [v for v in values if v is not None and float(v) > 0]
+    if not valid or current is None or float(current) <= 0:
         return None
-    less_count = sum(1 for v in valid if v < current)
+    less_count = sum(1 for v in valid if float(v) < float(current))
     return round((less_count / len(valid)) * 100, 1)
 
 
-def get_stock_history_and_valuation(code: str, latest_prev_close: Optional[float] = None) -> Dict[str, Any]:
+def get_stock_history_and_valuation(code: str, latest_prev_close: Optional[float] = None, prev_trade_date: Optional[str] = None) -> Dict[str, Any]:
     """
     统一入口：获取标的上市首日至最新交易日的全景量价、PB、PE 与 ROE 走势及综合统计
     返回结构保持不变 (summary/monthly_history/daily_history/valuation_history/roe_history)
@@ -824,8 +851,8 @@ def get_stock_history_and_valuation(code: str, latest_prev_close: Optional[float
     is_equity = (atype == "stock")
     full_code = info["full_code"]
     with ThreadPoolExecutor(max_workers=4) as executor:
-        f_month = executor.submit(get_kline_cached, info, "month", latest_prev_close)
-        f_day = executor.submit(get_kline_cached, info, "day", latest_prev_close)
+        f_month = executor.submit(get_kline_cached, info, "month", latest_prev_close, prev_trade_date)
+        f_day = executor.submit(get_kline_cached, info, "day", latest_prev_close, prev_trade_date)
         f_val = executor.submit(fetch_valuation_history, sym, full_code) if is_equity and market != "HK" else None
         f_roe = executor.submit(fetch_roe_history, sym, full_code) if is_equity and market != "HK" else None
 
@@ -834,40 +861,8 @@ def get_stock_history_and_valuation(code: str, latest_prev_close: Optional[float
         val_list = f_val.result() if f_val else []
         roe_list = f_roe.result() if f_roe else []
 
-    # 针对历史较早月份，结合财报 BPS/EPS 与月K收盘价回溯生成早期估值线
-    if monthly_klines and roe_list:
-        bps_map = {r["date"]: r["bps"] for r in roe_list if r.get("bps")}
-        eps_map = {r["date"]: r["eps"] for r in roe_list if r.get("eps")}
-        report_dates = sorted(list(set(bps_map.keys()) | set(eps_map.keys())))
-
-        val_date_set = {v["date"] for v in val_list}
-        synthetic_val = []
-        for k in monthly_klines:
-            d = k.get("date")
-            close_val = k.get("close")
-            if not d or close_val is None or float(close_val) <= 0:
-                continue
-            if d not in val_date_set:
-                matched_rd = None
-                for rd in reversed(report_dates):
-                    if rd <= d:
-                        matched_rd = rd
-                        break
-                if matched_rd:
-                    bps = bps_map.get(matched_rd)
-                    eps = eps_map.get(matched_rd)
-                    calc_pb = round(float(close_val) / float(bps), 2) if bps and float(bps) > 0 else None
-                    calc_pe = round(float(close_val) / float(eps), 2) if eps and float(eps) > 0 else None
-                    if calc_pb or calc_pe:
-                        synthetic_val.append({
-                            "date": d,
-                            "pe": calc_pe,
-                            "pb": calc_pb,
-                            "market_cap": None,
-                            "_synthetic": True
-                        })
-        if synthetic_val:
-            val_list = sorted(synthetic_val + val_list, key=lambda x: x["date"])
+    # 严禁将前复权 (QFQ) 价格与历史财报未复权 (Unadjusted) 每股指标直接相除合成历史 PB/PE，
+    # 避免股票经历高送转除权后历史估值被系统性严重压低。直接依托 TuShare/东财官方真实估值时序。
 
     # 4. 构建全景统计摘要
     all_k = monthly_klines if monthly_klines else daily_klines
@@ -875,13 +870,13 @@ def get_stock_history_and_valuation(code: str, latest_prev_close: Optional[float
     latest_trade = (daily_klines[-1]["date"] if daily_klines else (all_k[-1]["date"] if all_k else ""))
     latest_price = (daily_klines[-1]["close"] if daily_klines else (all_k[-1]["close"] if all_k else 0.0))
 
-    all_pb = [v["pb"] for v in val_list if v.get("pb") is not None and v["pb"] > 0]
-    all_pe = [v["pe"] for v in val_list if v.get("pe") is not None and v["pe"] > 0 and v["pe"] < 300]
-    all_roe = [r["roe"] for r in roe_list if r.get("roe") is not None]
+    all_pb = [float(v["pb"]) for v in val_list if v.get("pb") is not None and float(v["pb"]) > 0]
+    all_pe = [float(v["pe"]) for v in val_list if v.get("pe") is not None and float(v["pe"]) > 0 and float(v["pe"]) < 300]
+    all_roe = [float(r["roe"]) for r in roe_list if r.get("roe") is not None]
 
-    latest_pb = val_list[-1]["pb"] if (val_list and val_list[-1].get("pb")) else None
-    latest_pe = val_list[-1]["pe"] if (val_list and val_list[-1].get("pe")) else None
-    latest_roe = roe_list[-1]["roe"] if (roe_list and roe_list[-1].get("roe")) else None
+    latest_pb = float(val_list[-1]["pb"]) if (val_list and val_list[-1].get("pb")) else None
+    latest_pe = float(val_list[-1]["pe"]) if (val_list and val_list[-1].get("pe")) else None
+    latest_roe = float(roe_list[-1]["roe"]) if (roe_list and roe_list[-1].get("roe")) else None
 
     pb_percentile = calculate_percentile(all_pb, latest_pb) if latest_pb else None
 
@@ -899,7 +894,9 @@ def get_stock_history_and_valuation(code: str, latest_prev_close: Optional[float
             pe_percentile = None
             pe_status = "亏损(PE<0)"
         else:
-            pe_percentile = calculate_percentile(all_pe, latest_pe)
+            # 严格过滤历史亏损期负 PE 样本，确保当前恢复盈利后分位数计算基准公允
+            hist_pe_positive = [p for p in all_pe if p is not None and float(p) > 0]
+            pe_percentile = calculate_percentile(hist_pe_positive, latest_pe)
             pe_status = f"{pe_percentile}%" if pe_percentile is not None else "正常"
     else:
         pe_percentile = None
