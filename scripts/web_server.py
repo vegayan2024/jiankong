@@ -13,6 +13,7 @@ import json
 import asyncio
 import logging
 import urllib.request
+from collections import OrderedDict
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, List, Optional, Any, Set, Tuple
@@ -93,12 +94,36 @@ quote_executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="quote_wor
 watchlist_manager = WatchlistManager(filepath=JIANKONG_DIR / "watchlist.json")
 WEB_DIR = JIANKONG_DIR / "web"
 
+
+class BoundedIdSet:
+    """基于 OrderedDict 实现的 FIFO 有序去重集合，容量超限时自动淘汰最老 ID，保证 O(1) 查找且避免截断闪烁。"""
+    def __init__(self, maxlen: int = 4000):
+        self.maxlen = maxlen
+        self._data: OrderedDict[str, None] = OrderedDict()
+
+    def add(self, item: str):
+        if not item:
+            return
+        if item in self._data:
+            self._data.move_to_end(item)
+            return
+        self._data[item] = None
+        if len(self._data) > self.maxlen:
+            self._data.popitem(last=False)  # 严格按 FIFO 淘汰最老 ID，杜绝批量清空导致旧闻复发
+
+    def __contains__(self, item: str) -> bool:
+        return item in self._data
+
+    def __len__(self) -> int:
+        return len(self._data)
+
+
 cached_quotes: Dict[str, Dict[str, Any]] = {}
 recent_alerts: List[Dict[str, Any]] = []
 recent_announcements: List[Dict[str, Any]] = []
 recent_news: List[Dict[str, Any]] = []
-seen_announcement_ids: Set[str] = set()
-seen_news_ids: Set[str] = set()
+seen_announcement_ids: BoundedIdSet = BoundedIdSet(4000)
+seen_news_ids: BoundedIdSet = BoundedIdSet(5000)
 price_history: Dict[str, List[Tuple[float, float]]] = {}
 
 
@@ -241,7 +266,10 @@ def _fetch_single_chunk(chunk_items: List[Dict[str, Any]], now_ts: float, now_st
                         "price": price, "pct_change": pct_change, "volume": volume,
                         "amount": amount, "high": high_p, "low": low_p, "prev_close": prev_close
                     }
-                    alert_core = alert_engine.evaluate_and_gate(cfg, metrics, now_ts=now_ts)
+                    market_val = cfg.get("market", "SH").upper()
+                    cur_sess = get_market_session()
+                    is_stock_trading = cur_sess.get("hk", {}).get("is_trading", False) if market_val == "HK" else cur_sess.get("cn", {}).get("is_trading", False)
+                    alert_core = alert_engine.evaluate_and_gate(cfg, metrics, now_ts=now_ts, is_trading=is_stock_trading)
                     if alert_core:
                         matched_txt = "；".join(alert_core.get("matched_conditions", []))
                         chunk_alerts.append({
@@ -322,15 +350,11 @@ def fetch_batch_quotes():
 
 
 def fetch_cninfo_announcements_sync():
-    """抓取巨潮资讯今日法定披露 (带集合容量修剪)"""
+    """抓取巨潮资讯今日法定披露 (使用 BoundedIdSet FIFO 防重复)"""
     global recent_announcements, seen_announcement_ids
     today_str = datetime.today().strftime("%Y-%m-%d")
     now_str = datetime.now().strftime("%H:%M:%S")
     active_stocks = {s["symbol"]: s for s in watchlist_manager.items if s.get("asset_type") == "stock"}
-
-    # 内存边界防御：防止历史 ID 集合无限膨胀
-    if len(seen_announcement_ids) > 1000:
-        seen_announcement_ids = {a["id"] for a in recent_announcements if a.get("id")}
 
     for col, plate in [("szse", "sz"), ("sse", "sh"), ("bj", "bj")]:
         try:
@@ -406,15 +430,11 @@ def get_watchlist_kw_map():
 
 
 def fetch_flash_news_sync():
-    """抓取全网 7x24 财经电报流 (复用 HTTP Keep-Alive 连接池)"""
+    """抓取全网 7x24 财经电报流 (复用 HTTP Keep-Alive 连接池，使用 BoundedIdSet FIFO 防重复)"""
     global recent_news, seen_news_ids
     try:
         kw_map = get_watchlist_kw_map()
         url = "https://zhibo.sina.com.cn/api/zhibo/feed?zhibo_id=152&page=1&page_size=80"
-        
-        # 内存边界防御：防止历史已读新闻 ID 集合无限膨胀
-        if len(seen_news_ids) > 1500:
-            seen_news_ids = {n["id"] for n in recent_news if n.get("id")}
 
         resp = http_session.get(url, timeout=5)
         if resp.status_code == 200:
@@ -507,6 +527,18 @@ async def background_polling_loop():
             now_dt = datetime.now()
             # 联动宏观与风格罗盘动量微调
             macro_compass.update_from_quotes(cached_quotes)
+            all_quotes_list = list(cached_quotes.values())
+            up_c = sum(1 for q in all_quotes_list if q.get("pct_change", 0) > 0)
+            down_c = sum(1 for q in all_quotes_list if q.get("pct_change", 0) < 0)
+            flat_c = sum(1 for q in all_quotes_list if q.get("pct_change", 0) == 0)
+            stats_payload = {
+                "total": len(all_quotes_list),
+                "up": up_c,
+                "down": down_c,
+                "flat": flat_c,
+                "alerts": len(recent_alerts)
+            }
+
             await ws_manager.broadcast({
                 "type": "TICK",
                 "timestamp": now_dt.strftime("%H:%M:%S"),
@@ -517,7 +549,10 @@ async def background_polling_loop():
                 "news_count": len(recent_news),
                 "news_hit_count": sum(1 for n in recent_news if n.get("is_hit")),
                 "macro_compass": macro_compass.get_full_status(),
-                "market_session": get_market_session(now_dt)
+                "market_session": get_market_session(now_dt),
+                "quotes": all_quotes_list,
+                "stats": stats_payload,
+                "alerts": recent_alerts[:20]
             })
 
             loop_count += 1
@@ -959,7 +994,11 @@ async def get_stock_history_endpoint(code: str):
     """
     try:
         from scripts.stock_history_provider import get_stock_history_and_valuation
-        res = await asyncio.to_thread(get_stock_history_and_valuation, code)
+        # 尝试传入实时 prev_close，用于校准除权除息导致的前复权漂移
+        latest_prev_close = None
+        if code in cached_quotes:
+            latest_prev_close = cached_quotes[code].get("prev_close")
+        res = await asyncio.to_thread(get_stock_history_and_valuation, code, latest_prev_close)
         return res
     except Exception as e:
         logger.error(f"获取标的 {code} 历史走势与估值失败: {e}", exc_info=True)
@@ -996,7 +1035,7 @@ if WEB_DIR.exists():
 
 
 def ensure_port_available(port: int = 8765):
-    """确保端口可用，若被旧进程占用则自动安全终止旧进程，避免 Errno 10048。"""
+    """确保端口可用，若被旧进程占用则自动安全终止旧进程，避免 Errno 10048。严格校验进程命令行与名称，杜绝误杀外部进程。"""
     try:
         import psutil
         current_pid = os.getpid()
@@ -1006,7 +1045,15 @@ def ensure_port_available(port: int = 8765):
                 if pid and pid != current_pid:
                     try:
                         p = psutil.Process(pid)
-                        logger.info(f"🔄 检测到端口 {port} 已被旧进程 (PID: {pid}, {p.name()}) 占用，正在释放...")
+                        p_name = p.name().lower()
+                        cmdline_list = p.cmdline() if callable(getattr(p, "cmdline", None)) else []
+                        cmdline_str = " ".join(cmdline_list).lower()
+                        is_our_process = ("python" in p_name) and ("web_server.py" in cmdline_str or "jiankong" in cmdline_str)
+                        if not is_our_process:
+                            logger.warning(f"⚠️ 端口 {port} 被外部进程占用 (PID: {pid}, Name: {p.name()})，跳过自动终止以确保安全。")
+                            continue
+
+                        logger.info(f"🔄 检测到端口 {port} 已被旧监控进程 (PID: {pid}, {p.name()}) 占用，正在安全释放...")
                         p.terminate()
                         p.wait(timeout=2)
                     except Exception:

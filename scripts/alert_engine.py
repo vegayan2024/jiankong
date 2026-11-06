@@ -132,6 +132,11 @@ class AlertEngine:
     def _persist(self):
         try:
             self.state_file.parent.mkdir(parents=True, exist_ok=True)
+            # 自动淘汰超过 7 天无触发的冷门标的状态，保持存储整洁
+            cutoff = time.time() - 7 * 86400
+            clean_state = {k: v for k, v in self._state.items() if v.get("last_trigger_ts", 0) > cutoff}
+            self._state = clean_state
+
             tmp = self.state_file.with_suffix(".tmp")
             tmp.write_text(json.dumps(self._state, ensure_ascii=False), encoding="utf-8")
             import os
@@ -164,18 +169,29 @@ class AlertEngine:
         self._persist()
 
     def evaluate_and_gate(self, item_config: Dict[str, Any], metrics: Dict[str, float],
-                          now_ts: Optional[float] = None) -> Optional[Dict[str, Any]]:
+                          now_ts: Optional[float] = None, is_trading: bool = True) -> Optional[Dict[str, Any]]:
         """
         评估标的预警并通过门禁。命中且通过门禁返回警报核心 dict，否则返回 None。
 
         item_config: watchlist 标的配置 (可用 alert_conditions 自定义，否则用 alert_threshold_pct)
         metrics:     当前行情指标 {price, pct_change, volume, amount, high, low, prev_close}
+        is_trading:  当前是否处于连续竞价交易时间 (默认True，非交易时间/集合竞价自动屏蔽)
         """
         code = item_config.get("code")
         if not code:
             return None
 
-        # 1. 构建条件组 (向后兼容：无自定义条件则用单阈值)
+        # 1. 守卫门限：必须处于正式连续竞价时段，屏蔽 09:15-09:25 集合竞价虚单与盘前噪点
+        if not is_trading:
+            return None
+
+        # 2. 价格有效性守卫：拦截停牌/未开盘零值或异常
+        price = float(metrics.get("price", 0.0))
+        prev_close = float(metrics.get("prev_close", 0.0))
+        if price <= 0.0 or prev_close <= 0.0:
+            return None
+
+        # 3. 构建条件组 (向后兼容：无自定义条件则用单阈值)
         custom = item_config.get("alert_conditions")
         if isinstance(custom, dict) and custom.get("items"):
             group = custom
@@ -187,7 +203,7 @@ class AlertEngine:
             cooldown_min = int(item_config.get("cooldown_minutes", 30))
             daily_max = int(item_config.get("max_triggers_per_day", 5))
 
-        # 2. 评估条件
+        # 4. 评估条件
         hit, matched = _evaluate_group(group, metrics)
         if not hit:
             return None
@@ -195,7 +211,7 @@ class AlertEngine:
         now_ts = now_ts if now_ts is not None else time.time()
         today = datetime.fromtimestamp(now_ts).strftime("%Y-%m-%d")
 
-        # 3. 门禁 (线程安全)
+        # 5. 门禁 (线程安全)
         with self._lock:
             if not self._gate_pass(code, cooldown_min, daily_max, now_ts, today):
                 return None

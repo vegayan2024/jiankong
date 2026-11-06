@@ -61,21 +61,25 @@ EM_SESSION.headers.update({
     "Referer": "https://data.eastmoney.com/",
     "Accept": "*/*",
 })
-EM_MIN_INTERVAL = 1.0  # 东财请求最小间隔秒
+EM_MIN_INTERVAL = 0.5  # 东财请求最小间隔秒 (由 1.0 优化至 0.5，大幅缩减排队时延)
 _em_last_call = [0.0]
 _em_lock = threading.Lock()
 
 
-def em_get(url: str, params=None, headers=None, timeout: float = 8.0) -> requests.Response:
-    """东财专用限流 GET：串行 + 最小间隔 + 随机抖动，防止触发 WAF 封禁。"""
-    with _em_lock:
+def em_get(url: str, params=None, headers=None, timeout: float = 6.0) -> requests.Response:
+    """东财专用限流 GET：串行 + 最小间隔 + 随机抖动 + 超时安全，防止触发 WAF 封禁与线程假死。"""
+    acquired = _em_lock.acquire(timeout=4.0)
+    if not acquired:
+        logger.warning(f"获取东财限流锁超时 (4.0s)，跳过避免线程池阻塞: {url}")
+        raise TimeoutError("东财接口限流排队超时")
+    try:
         wait = EM_MIN_INTERVAL - (time.time() - _em_last_call[0])
         if wait > 0:
-            time.sleep(wait + random.uniform(0.05, 0.3))
-        try:
-            return EM_SESSION.get(url, params=params, headers=headers, timeout=timeout)
-        finally:
-            _em_last_call[0] = time.time()
+            time.sleep(wait + random.uniform(0.02, 0.15))
+        return EM_SESSION.get(url, params=params, headers=headers, timeout=timeout)
+    finally:
+        _em_last_call[0] = time.time()
+        _em_lock.release()
 
 
 CACHE_DIR = Path(__file__).resolve().parent.parent / "scratch" / "history_cache"
@@ -106,10 +110,13 @@ def clean_symbol(code: str) -> Dict[str, str]:
         "000300.SH": ("sh000300", "000300", "SH", "index"),
         "000905.SH": ("sh000905", "000905", "SH", "index"),
         "000852.SH": ("sh000852", "000852", "SH", "index"),
+        "000932.SH": ("sh000932", "000932", "SH", "index"),
+        "000922.SH": ("sh000922", "000922", "SH", "index"),
         "000688.SH": ("sh000688", "000688", "SH", "index"),
         "399006.SZ": ("sz399006", "399006", "SZ", "index"),
         "HSI.HK": ("hkHSI", "HSI", "HK", "index"),
-        "HSTECH.HK": ("hkHSTECH", "HSTECH", "HK", "index")
+        "HSTECH.HK": ("hkHSTECH", "HSTECH", "HK", "index"),
+        "HSAHP.HK": ("hkHSAHP", "HSAHP", "HK", "index")
     }
     if code_raw in index_map:
         tc, sym, mkt, atype = index_map[code_raw]
@@ -183,7 +190,13 @@ class KlineCache:
         self._init_db()
 
     def _conn(self):
-        return sqlite3.connect(self.db_path, timeout=15)
+        conn = sqlite3.connect(self.db_path, timeout=30.0)
+        try:
+            conn.execute("PRAGMA journal_mode=WAL;")
+            conn.execute("PRAGMA synchronous=NORMAL;")
+        except Exception:
+            pass
+        return conn
 
     def _init_db(self):
         try:
@@ -201,6 +214,18 @@ class KlineCache:
                 conn.execute("CREATE INDEX IF NOT EXISTS idx_kline_sym ON kline(symbol, freq, date)")
         except Exception as e:
             logger.warning(f"初始化 K线缓存库失败: {e}")
+
+    def invalidate(self, symbol: str, freq: Optional[str] = None):
+        """清空标的缓存。当标的发生分红除权导致最新prev_close与历史收盘价断层时调用。"""
+        try:
+            with self._conn() as conn:
+                if freq:
+                    conn.execute("DELETE FROM kline WHERE symbol=? AND freq=?", (symbol, freq))
+                else:
+                    conn.execute("DELETE FROM kline WHERE symbol=?", (symbol,))
+            logger.info(f"已清空 {symbol} 本地K线缓存 (除权重置或手动失效)")
+        except Exception as e:
+            logger.warning(f"清空 {symbol} K线缓存失败: {e}")
 
     def max_date(self, symbol: str, freq: str) -> Optional[str]:
         try:
@@ -240,7 +265,7 @@ class KlineCache:
         except Exception:
             return []
 
-    def upsert(self, symbol: str, freq: str, rows: List[Dict[str, Any]], source: str):
+    def upsert(self, symbol: str, freq: str, rows: List[Dict[str, Any]], source: str, replace: bool = False):
         if not rows:
             return
         valid_rows = [r for r in rows if r.get("close") is not None and float(r["close"]) > 0]
@@ -253,10 +278,17 @@ class KlineCache:
         ]
         try:
             with self._conn() as conn:
-                conn.executemany(
-                    "INSERT OR IGNORE INTO kline(symbol,freq,date,open,high,low,close,volume,source) "
-                    "VALUES(?,?,?,?,?,?,?,?,?)", data
-                )
+                if replace:
+                    conn.execute("DELETE FROM kline WHERE symbol=? AND freq=?", (symbol, freq))
+                    conn.executemany(
+                        "INSERT OR REPLACE INTO kline(symbol,freq,date,open,high,low,close,volume,source) "
+                        "VALUES(?,?,?,?,?,?,?,?,?)", data
+                    )
+                else:
+                    conn.executemany(
+                        "INSERT OR IGNORE INTO kline(symbol,freq,date,open,high,low,close,volume,source) "
+                        "VALUES(?,?,?,?,?,?,?,?,?)", data
+                    )
         except Exception as e:
             logger.warning(f"写入 K线缓存失败: {e}")
 
@@ -476,34 +508,46 @@ def fetch_kline_chain(info: Dict[str, str], freq: str) -> Tuple[List[Dict[str, A
     return [], "none"
 
 
-def get_kline_cached(info: Dict[str, str], freq: str) -> List[Dict[str, Any]]:
+def get_kline_cached(info: Dict[str, str], freq: str, latest_prev_close: Optional[float] = None) -> List[Dict[str, Any]]:
     """
     带 SQLite 本地缓存的 K线获取：
-    1. 本地缓存新鲜 (最新日期距今 <= 7 天) → 直接读缓存
-    2. 否则走降级链全量拉取 → INSERT OR IGNORE 写入缓存 → 读全量返回
-    3. 拉取全失败 → 读旧缓存兜底 (可能为空，绝不伪造)
+    1. 校验最新除权除息漂移：若缓存尾部收盘价与实时 prev_close 偏离 > 5%，自动清空该标的旧缓存重新全量拉取。
+    2. 本地缓存新鲜 (最新日期距今 <= 7 天) → 直接读缓存
+    3. 否则走降级链全量拉取 → INSERT OR REPLACE 写入缓存 → 读全量返回
+    4. 拉取全失败 → 读旧缓存兜底 (可能为空，绝不伪造)
     """
     cache_key = info["full_code"]
+    cached = kline_cache.read(cache_key, freq)
+
+    # 校验最新除权除息导致的前复权漂移
+    if cached and latest_prev_close and latest_prev_close > 0:
+        last_cached_close = cached[-1]["close"]
+        if abs(last_cached_close - latest_prev_close) / latest_prev_close > 0.05:
+            logger.warning(
+                f"{cache_key} 检测到除权除息价格漂移 (缓存Close: {last_cached_close}, 实时PrevClose: {latest_prev_close})，"
+                f"清空旧缓存并触发全量重拉"
+            )
+            kline_cache.invalidate(cache_key, freq)
+            cached = []
+
     maxd = kline_cache.max_date(cache_key, freq)
-    if maxd:
+    if maxd and cached:
         try:
             last = datetime.strptime(maxd, "%Y-%m-%d").date()
             if (date.today() - last).days <= KLINE_CACHE_FRESH_DAYS:
-                cached = kline_cache.read(cache_key, freq)
-                if cached:
-                    return cached
+                return cached
         except Exception:
             pass
 
     rows, source = fetch_kline_chain(info, freq)
     if rows:
-        kline_cache.upsert(cache_key, freq, rows, source)
-        cached = kline_cache.read(cache_key, freq)
-        if cached:
-            return cached
+        kline_cache.upsert(cache_key, freq, rows, source, replace=True)
+        new_cached = kline_cache.read(cache_key, freq)
+        if new_cached:
+            return new_cached
         return rows
     # 拉取全失败：尝试旧缓存兜底
-    return kline_cache.read(cache_key, freq)
+    return cached or kline_cache.read(cache_key, freq)
 
 
 # ======================== 估值与财务指标 (TuShare优先 + 东财/同花顺备用) ========================
@@ -746,7 +790,7 @@ def calculate_percentile(values: List[float], current: float) -> Optional[float]
     return round((less_count / len(valid)) * 100, 1)
 
 
-def get_stock_history_and_valuation(code: str) -> Dict[str, Any]:
+def get_stock_history_and_valuation(code: str, latest_prev_close: Optional[float] = None) -> Dict[str, Any]:
     """
     统一入口：获取标的上市首日至最新交易日的全景量价、PB、PE 与 ROE 走势及综合统计
     返回结构保持不变 (summary/monthly_history/daily_history/valuation_history/roe_history)
@@ -780,8 +824,8 @@ def get_stock_history_and_valuation(code: str) -> Dict[str, Any]:
     is_equity = (atype == "stock")
     full_code = info["full_code"]
     with ThreadPoolExecutor(max_workers=4) as executor:
-        f_month = executor.submit(get_kline_cached, info, "month")
-        f_day = executor.submit(get_kline_cached, info, "day")
+        f_month = executor.submit(get_kline_cached, info, "month", latest_prev_close)
+        f_day = executor.submit(get_kline_cached, info, "day", latest_prev_close)
         f_val = executor.submit(fetch_valuation_history, sym, full_code) if is_equity and market != "HK" else None
         f_roe = executor.submit(fetch_roe_history, sym, full_code) if is_equity and market != "HK" else None
 
@@ -840,7 +884,26 @@ def get_stock_history_and_valuation(code: str) -> Dict[str, Any]:
     latest_roe = roe_list[-1]["roe"] if (roe_list and roe_list[-1].get("roe")) else None
 
     pb_percentile = calculate_percentile(all_pb, latest_pb) if latest_pb else None
-    pe_percentile = calculate_percentile(all_pe, latest_pe) if latest_pe else None
+
+    # 针对指数与 ETF，明确剥离 ROE 指标；针对负 PE（亏损股），禁止线性历史百分位排序
+    if atype in ["index", "etf"]:
+        latest_roe = None
+        avg_roe = None
+        roe_status = "N/A(指数/ETF)"
+    else:
+        avg_roe = round(sum(all_roe) / len(all_roe), 2) if all_roe else None
+        roe_status = f"{latest_roe}%" if latest_roe is not None else "无数据"
+
+    if latest_pe is not None:
+        if latest_pe <= 0:
+            pe_percentile = None
+            pe_status = "亏损(PE<0)"
+        else:
+            pe_percentile = calculate_percentile(all_pe, latest_pe)
+            pe_status = f"{pe_percentile}%" if pe_percentile is not None else "正常"
+    else:
+        pe_percentile = None
+        pe_status = "无数据"
 
     all_prices = [k["close"] for k in all_k]
     highest_price = max(all_prices) if all_prices else 0.0
@@ -864,10 +927,12 @@ def get_stock_history_and_valuation(code: str) -> Dict[str, Any]:
         "max_pb": max(all_pb) if all_pb else None,
         "latest_pe": latest_pe,
         "pe_percentile": pe_percentile,
+        "pe_status": pe_status,
         "min_pe": min(all_pe) if all_pe else None,
         "max_pe": max(all_pe) if all_pe else None,
         "latest_roe": latest_roe,
-        "avg_roe": round(sum(all_roe) / len(all_roe), 2) if all_roe else None,
+        "avg_roe": avg_roe,
+        "roe_status": roe_status,
     }
 
     final_payload = {

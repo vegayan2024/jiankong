@@ -91,75 +91,152 @@ def is_trading_day(d: Optional[date] = None) -> bool:
     return d.strftime("%Y-%m-%d") in trading_dates
 
 
-def get_market_session(now: Optional[datetime] = None) -> Dict[str, Any]:
-    """
-    返回当前 A股交易时段状态，用于首页「交易时间/非交易时间」标注。
+def is_hk_trading_day(d: Optional[date] = None) -> bool:
+    """判断是否为港股交易日 (排除周末与已知港股法定节假日)"""
+    d = d or date.today()
+    if _is_weekend(d):
+        return False
+    # 常用已知港股休市固定节假日（元旦、劳动节、国庆、圣诞节等）
+    hk_fixed_holidays = {
+        "01-01", "05-01", "07-01", "10-01", "12-25", "12-26"
+    }
+    if d.strftime("%m-%d") in hk_fixed_holidays:
+        return False
+    return True
 
-    返回字段:
-        server_time      当前时间 YYYY-MM-DD HH:MM:SS
-        is_trading_day   是否交易日 (非周末/节假日)
-        is_trading       是否处于连续竞价交易时段 (交易时间=True)
-        session          时段代码: pre_open/morning/lunch/afternoon/closed/weekend/holiday
-        session_label    时段中文标签
-        status_label     核心标注: "交易时间" / "非交易时间"
-        status_icon      状态图标: 🟢交易 / 🟡午休 / 🔴休市
-        note             补充说明 (如下一开盘时间)
-    """
+
+def get_cn_session(now: Optional[datetime] = None) -> Dict[str, Any]:
+    """返回 A股 (沪深京) 当前交易时段状态"""
     now = now or datetime.now()
     d = now.date()
     t = now.time()
 
-    base = {
-        "server_time": now.strftime("%Y-%m-%d %H:%M:%S"),
-        "date": d.strftime("%Y-%m-%d"),
-        "weekday": "一二三四五六日"[d.weekday()],
-    }
-
-    # 周末
     if _is_weekend(d):
-        return {**base, "is_trading_day": False, "is_trading": False,
-                "session": "weekend", "session_label": "周末休市",
-                "status_label": "非交易时间", "status_icon": "🔴",
-                "note": "周末闭市，行情为最近交易日收盘数据"}
-
-    # 法定节假日
+        return {"is_trading_day": False, "is_trading": False, "session": "weekend",
+                "session_label": "周末休市", "note": "周末闭市"}
     if not is_trading_day(d):
-        return {**base, "is_trading_day": False, "is_trading": False,
-                "session": "holiday", "session_label": "节假日休市",
-                "status_label": "非交易时间", "status_icon": "🔴",
-                "note": "法定节假日闭市"}
+        return {"is_trading_day": False, "is_trading": False, "session": "holiday",
+                "session_label": "节假日休市", "note": "A股法定节假日闭市"}
 
-    # 交易日内的时段划分 (北京时间，A股)
+    call_auction = dtime(9, 15)
     morning_open = dtime(9, 30)
     morning_close = dtime(11, 30)
     afternoon_open = dtime(13, 0)
     afternoon_close = dtime(15, 0)
-    call_auction = dtime(9, 15)
 
     if t < call_auction:
-        session, label, trading, icon = "pre_open", "尚未开盘", False, "🔴"
-        note = "开盘集合竞价 9:15 开始"
+        return {"is_trading_day": True, "is_trading": False, "session": "pre_open",
+                "session_label": "尚未开盘", "note": "开盘集合竞价 9:15 开始"}
     elif t < morning_open:
-        session, label, trading, icon = "pre_open", "集合竞价", False, "🟡"
-        note = "9:30 开始连续竞价"
+        return {"is_trading_day": True, "is_trading": False, "session": "pre_open",
+                "session_label": "集合竞价", "note": "9:30 开始连续竞价"}
     elif t < morning_close:
-        session, label, trading, icon = "morning", "上午交易中", True, "🟢"
-        note = "上午连续竞价 9:30-11:30"
+        return {"is_trading_day": True, "is_trading": True, "session": "morning",
+                "session_label": "上午交易中", "note": "连续竞价 9:30-11:30"}
     elif t < afternoon_open:
-        session, label, trading, icon = "lunch", "午间休市", False, "🟡"
-        note = "13:00 恢复下午交易"
+        return {"is_trading_day": True, "is_trading": False, "session": "lunch",
+                "session_label": "午间休市", "note": "13:00 恢复交易"}
     elif t < afternoon_close:
-        session, label, trading, icon = "afternoon", "下午交易中", True, "🟢"
-        note = "下午连续竞价 13:00-15:00"
+        return {"is_trading_day": True, "is_trading": True, "session": "afternoon",
+                "session_label": "下午交易中", "note": "连续竞价 13:00-15:00"}
     else:
-        session, label, trading, icon = "closed", "已收盘", False, "🔴"
-        note = "15:00 收盘，次一交易日 9:30 开盘"
+        return {"is_trading_day": True, "is_trading": False, "session": "closed",
+                "session_label": "已收盘", "note": "15:00 收盘"}
 
-    return {**base,
-            "is_trading_day": True, "is_trading": trading,
-            "session": session, "session_label": label,
-            "status_label": "交易时间" if trading else "非交易时间",
-            "status_icon": icon, "note": note}
+
+def get_hk_session(now: Optional[datetime] = None) -> Dict[str, Any]:
+    """返回 港股 (HKEX) 当前交易时段状态 (覆盖 11:30-12:00 及 15:00-16:00 交易时段)"""
+    now = now or datetime.now()
+    d = now.date()
+    t = now.time()
+
+    if _is_weekend(d):
+        return {"is_trading_day": False, "is_trading": False, "session": "weekend",
+                "session_label": "周末休市", "note": "港股周末休市"}
+    if not is_hk_trading_day(d):
+        return {"is_trading_day": False, "is_trading": False, "session": "holiday",
+                "session_label": "港股假期休市", "note": "港股法定节假日休市"}
+
+    pos_open = dtime(9, 0)
+    morning_open = dtime(9, 30)
+    morning_close = dtime(12, 0)
+    afternoon_open = dtime(13, 0)
+    afternoon_close = dtime(16, 0)
+    cas_close = dtime(16, 10)
+
+    if t < pos_open:
+        return {"is_trading_day": True, "is_trading": False, "session": "pre_open",
+                "session_label": "尚未开盘", "note": "开市前时段 9:00 开始"}
+    elif t < morning_open:
+        return {"is_trading_day": True, "is_trading": False, "session": "pre_open",
+                "session_label": "开市前竞价", "note": "9:30 开始连续竞价"}
+    elif t < morning_close:
+        return {"is_trading_day": True, "is_trading": True, "session": "morning",
+                "session_label": "早市交易中", "note": "早市连续竞价 9:30-12:00"}
+    elif t < afternoon_open:
+        return {"is_trading_day": True, "is_trading": False, "session": "lunch",
+                "session_label": "午市休市", "note": "13:00 恢复午市交易"}
+    elif t < afternoon_close:
+        return {"is_trading_day": True, "is_trading": True, "session": "afternoon",
+                "session_label": "午市交易中", "note": "午市连续竞价 13:00-16:00"}
+    elif t < cas_close:
+        return {"is_trading_day": True, "is_trading": False, "session": "closing_auction",
+                "session_label": "收市竞价", "note": "收市竞价时段 16:00-16:10"}
+    else:
+        return {"is_trading_day": True, "is_trading": False, "session": "closed",
+                "session_label": "已收市", "note": "16:00/16:10 收市"}
+
+
+def get_market_session(now: Optional[datetime] = None) -> Dict[str, Any]:
+    """
+    返回综合跨市场交易时段状态 (A股 + 港股双引擎独立感知)。
+    保证在 11:30-12:00 及 15:00-16:00 港股交易时段系统精准标注并维持高频轮询！
+    """
+    now = now or datetime.now()
+    cn = get_cn_session(now)
+    hk = get_hk_session(now)
+
+    is_trading = cn["is_trading"] or hk["is_trading"]
+    is_trading_day = cn["is_trading_day"] or hk["is_trading_day"]
+
+    if cn["is_trading"] and hk["is_trading"]:
+        status_label = "全市场交易中"
+        session_label = "A+H 连续竞价"
+        status_icon = "🟢"
+    elif cn["is_trading"]:
+        status_label = "A股交易中"
+        session_label = f"A股{cn['session_label']} (港股{hk['session_label']})"
+        status_icon = "🟢"
+    elif hk["is_trading"]:
+        status_label = "港股交易中"
+        session_label = f"港股{hk['session_label']} (A股{cn['session_label']})"
+        status_icon = "🟢"
+    elif cn["session"] == "pre_open" or hk["session"] == "pre_open":
+        status_label = "集合竞价"
+        session_label = f"A股{cn['session_label']} / 港股{hk['session_label']}"
+        status_icon = "🟡"
+    elif cn["session"] == "lunch" and hk["session"] == "lunch":
+        status_label = "午间休市"
+        session_label = "午间休市中"
+        status_icon = "🟡"
+    else:
+        status_label = "非交易时间"
+        session_label = cn["session_label"]
+        status_icon = "🔴"
+
+    return {
+        "server_time": now.strftime("%Y-%m-%d %H:%M:%S"),
+        "date": now.strftime("%Y-%m-%d"),
+        "weekday": "一二三四五六日"[now.weekday()],
+        "is_trading_day": is_trading_day,
+        "is_trading": is_trading,
+        "status_label": status_label,
+        "status_icon": status_icon,
+        "session_label": session_label,
+        "cn": cn,
+        "hk": hk,
+        "note": f"A股: {cn['note']} | 港股: {hk['note']}"
+    }
 
 
 market_session = get_market_session  # 便捷别名

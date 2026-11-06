@@ -80,23 +80,57 @@ class MacroCompassEngine:
 
     def update_from_quotes(self, quotes: Dict[str, Any]):
         """
-        利用盘中实时行情微调风格相对强弱动量（日内动量微调，不破坏日线大方向）
+        利用盘中实时行情微调风格相对强弱动量（日内动量微调，闭环联动中证2000、中证红利与AH溢价指数）
         """
-        # 获取沪深300、中证1000、中证500、创业板指最新涨跌幅
+        # 1. 大小盘相对强弱：优先取中证2000 (000932.SH)，次选中证1000 (000852.SH) vs 沪深300 (000300.SH)
         csi300 = quotes.get("000300.SH") or quotes.get("000300")
-        csi1000 = quotes.get("000852.SH") or quotes.get("000852")
-        chinext = quotes.get("399006.SZ") or quotes.get("399006")
-        dividend_etf = quotes.get("512010.SH")  # 医药/消费/红利代表
-        
-        # 如果获取到了核心大盘与小盘实时行情，结合日线基准做微调标注
-        if csi300 and csi1000:
-            c300_pct = float(csi300.get("change_pct", 0.0))
-            c1000_pct = float(csi1000.get("change_pct", 0.0))
-            diff = c1000_pct - c300_pct
-            self.cached_state["market_cap_style"]["intraday_spread"] = round(diff, 2)
+        csi_small = quotes.get("000932.SH") or quotes.get("000852.SH")
+        if csi300 and csi_small:
+            c300_pct = float(csi300.get("pct_change", csi300.get("change_pct", 0.0)))
+            small_pct = float(csi_small.get("pct_change", csi_small.get("change_pct", 0.0)))
+            small_name = csi_small.get("name", "小盘")
+            diff_mc = small_pct - c300_pct
+            self.cached_state["market_cap_style"]["intraday_spread"] = round(diff_mc, 2)
             self.cached_state["market_cap_style"]["intraday_status"] = (
-                f"盘中小盘强于大盘 +{diff:.2f}%" if diff > 0 else f"盘中大盘强于小盘 +{abs(diff):.2f}%"
+                f"盘中{small_name}强于大盘 +{diff_mc:.2f}%" if diff_mc > 0 else f"盘中大盘强于{small_name} +{abs(diff_mc):.2f}%"
             )
+            if diff_mc >= 0.5:
+                self.cached_state["market_cap_style"]["bias"] = "小盘"
+                self.cached_state["market_cap_style"]["bias_code"] = "small"
+            elif diff_mc <= -0.5:
+                self.cached_state["market_cap_style"]["bias"] = "大盘"
+                self.cached_state["market_cap_style"]["bias_code"] = "large"
+
+        # 2. 价值 vs 成长风格：中证红利 (000922.SH) vs 创业板指 (399006.SZ) / 科创50 (000688.SH)
+        dividend = quotes.get("000922.SH") or quotes.get("512010.SH")
+        growth = quotes.get("399006.SZ") or quotes.get("000688.SH")
+        if dividend and growth:
+            div_pct = float(dividend.get("pct_change", dividend.get("change_pct", 0.0)))
+            gro_pct = float(growth.get("pct_change", growth.get("change_pct", 0.0)))
+            diff_style = gro_pct - div_pct  # 正值代表成长占优，负值代表红利价值占优
+            self.cached_state["growth_value_style"]["intraday_spread"] = round(diff_style, 2)
+            self.cached_state["growth_value_style"]["intraday_status"] = (
+                f"盘中成长强于价值 +{diff_style:.2f}%" if diff_style > 0 else f"盘中红利价值强于成长 +{abs(diff_style):.2f}%"
+            )
+            if diff_style >= 0.5:
+                self.cached_state["growth_value_style"]["bias"] = "成长"
+                self.cached_state["growth_value_style"]["bias_code"] = "growth"
+            elif diff_style <= -0.5:
+                self.cached_state["growth_value_style"]["bias"] = "价值"
+                self.cached_state["growth_value_style"]["bias_code"] = "value"
+
+        # 3. 恒生AH溢价指数追踪：HSAHP.HK
+        ah_index = quotes.get("HSAHP.HK")
+        if ah_index:
+            ah_price = float(ah_index.get("price", 0.0))
+            ah_pct = float(ah_index.get("pct_change", ah_index.get("change_pct", 0.0)))
+            if ah_price > 0:
+                self.cached_state["southbound_ah"]["ah_premium_index"] = ah_price
+                self.cached_state["southbound_ah"]["ah_premium_change"] = ah_pct
+                self.cached_state["southbound_ah"]["ah_premium_desc"] = (
+                    f"AH股溢价指数点位 {ah_price:.2f} ({'+' if ah_pct>=0 else ''}{ah_pct:.2f}%)，"
+                    f"{'溢价走阔H股性价比凸显' if ah_pct > 0 else '溢价收窄AH价差平抑'}"
+                )
 
         self.cached_state["last_sync_time"] = time.strftime("%Y-%m-%d %H:%M:%S")
 

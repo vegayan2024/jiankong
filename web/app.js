@@ -751,17 +751,31 @@ async function loadStockHistoryAndChart(code) {
       if (el.hudPbMax) el.hudPbMax.textContent = `高: ${s.max_pb !== null && s.max_pb !== undefined ? Number(s.max_pb).toFixed(2) : '-'}`;
 
       // HUD PE
-      if (el.hudPePct) el.hudPePct.textContent = s.pe_percentile !== null && s.pe_percentile !== undefined ? `分位 ${s.pe_percentile}%` : '分位 -%';
+      if (el.hudPePct) {
+        if (s.pe_status && s.pe_status.includes('亏损')) {
+          el.hudPePct.textContent = '亏损 (PE<0)';
+          el.hudPePct.style.color = 'var(--c-down, #f43f5e)';
+        } else {
+          el.hudPePct.textContent = s.pe_percentile !== null && s.pe_percentile !== undefined ? `分位 ${s.pe_percentile}%` : '分位 -%';
+          el.hudPePct.style.color = '';
+        }
+      }
       if (el.hudPeVal) el.hudPeVal.textContent = s.latest_pe !== null && s.latest_pe !== undefined ? Number(s.latest_pe).toFixed(2) : '-';
       if (el.hudPeMin) el.hudPeMin.textContent = `低: ${s.min_pe !== null && s.min_pe !== undefined ? Number(s.min_pe).toFixed(2) : '-'}`;
       if (el.hudPeMax) el.hudPeMax.textContent = `高: ${s.max_pe !== null && s.max_pe !== undefined ? Number(s.max_pe).toFixed(2) : '-'}`;
 
       // HUD ROE
-      if (el.hudRoeVal) el.hudRoeVal.textContent = s.latest_roe !== null && s.latest_roe !== undefined ? `${Number(s.latest_roe).toFixed(2)}%` : '-%';
-      if (el.hudRoeAvg) el.hudRoeAvg.textContent = `历年均值: ${s.avg_roe !== null && s.avg_roe !== undefined ? Number(s.avg_roe).toFixed(2) + '%' : '-'}`;
-      if (el.hudRoeQuarter) {
-        const lastRoe = data.roe_history && data.roe_history.length ? data.roe_history[data.roe_history.length - 1] : null;
-        el.hudRoeQuarter.textContent = lastRoe ? `报告期: ${lastRoe.date}` : '';
+      if (s.roe_status === 'N/A(指数/ETF)') {
+        if (el.hudRoeVal) el.hudRoeVal.textContent = 'N/A (指数/ETF)';
+        if (el.hudRoeAvg) el.hudRoeAvg.textContent = '历年均值: 不适用';
+        if (el.hudRoeQuarter) el.hudRoeQuarter.textContent = '指数/ETF 无财报 ROE';
+      } else {
+        if (el.hudRoeVal) el.hudRoeVal.textContent = s.latest_roe !== null && s.latest_roe !== undefined ? `${Number(s.latest_roe).toFixed(2)}%` : '-%';
+        if (el.hudRoeAvg) el.hudRoeAvg.textContent = `历年均值: ${s.avg_roe !== null && s.avg_roe !== undefined ? Number(s.avg_roe).toFixed(2) + '%' : '-'}`;
+        if (el.hudRoeQuarter) {
+          const lastRoe = data.roe_history && data.roe_history.length ? data.roe_history[data.roe_history.length - 1] : null;
+          el.hudRoeQuarter.textContent = lastRoe ? `报告期: ${lastRoe.date}` : '';
+        }
       }
 
       // 2. 渲染 ECharts
@@ -1509,6 +1523,11 @@ const WS_MAX_RECONNECT_DELAY = 15000;
 let pendingTickMsg = null;
 let tickRafId = null;
 
+function setPollingRate(intervalMs) {
+  if (state.pollInterval) clearInterval(state.pollInterval);
+  state.pollInterval = setInterval(refreshData, intervalMs);
+}
+
 function applyPendingTickUpdate() {
   tickRafId = null;
   if (!pendingTickMsg) return;
@@ -1522,6 +1541,24 @@ function applyPendingTickUpdate() {
   if (msg.market_session) updateMarketSession(msg.market_session);
   if (msg.macro_compass) {
     renderMacroCompass(msg.macro_compass);
+  }
+
+  // 真长连接推送：直接由 WebSocket 刷新行情与统计指标，免除每3秒全量 HTTP 轮询风暴
+  if (msg.quotes && msg.quotes.length) {
+    state.quotes = msg.quotes;
+    if (msg.stats) {
+      if (el.metricTotal) el.metricTotal.textContent = msg.stats.total || msg.quotes.length;
+      if (el.metricUp) el.metricUp.textContent = msg.stats.up || 0;
+      if (el.metricDown) el.metricDown.textContent = msg.stats.down || 0;
+      if (el.metricFlat) el.metricFlat.textContent = msg.stats.flat || 0;
+      if (el.metricAlerts) el.metricAlerts.textContent = msg.stats.alerts || 0;
+    }
+    if (msg.alerts && msg.alerts.length) {
+      state.alerts = msg.alerts;
+      if (el.badgeAlerts) el.badgeAlerts.textContent = msg.alerts.length;
+      renderAlerts();
+    }
+    smartUpdateMatrix();
   }
 }
 
@@ -1539,6 +1576,7 @@ function setupWebSocket() {
 
     ws.onopen = () => {
       wsReconnectDelay = 1000; // 重置退避延迟
+      setPollingRate(30000); // WS 活跃中，降频 HTTP 轮询至 30 秒兜底，消除高频网络风暴
       if (wsHeartbeatTimer) clearInterval(wsHeartbeatTimer);
       wsHeartbeatTimer = setInterval(() => {
         if (ws.readyState === WebSocket.OPEN) {
@@ -1565,6 +1603,7 @@ function setupWebSocket() {
     };
 
     ws.onclose = () => {
+      setPollingRate(3000); // WS 断开，恢复 3 秒高频 HTTP 轮询保障可用性
       if (wsHeartbeatTimer) {
         clearInterval(wsHeartbeatTimer);
         wsHeartbeatTimer = null;
@@ -1575,12 +1614,14 @@ function setupWebSocket() {
     };
 
     ws.onerror = () => {
+      setPollingRate(3000);
       try {
         ws.close();
       } catch (e) {}
     };
   } catch (e) {
     console.warn('WebSocket 连接未建立，降级至 HTTP 轮询');
+    setPollingRate(3000);
   }
 }
 

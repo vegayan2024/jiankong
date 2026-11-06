@@ -41,10 +41,13 @@ SPECIAL_INDICES = {
     "000300.SH": {"symbol": "000300", "market": "SH", "name": "沪深300", "tencent": "sh000300"},
     "000905.SH": {"symbol": "000905", "market": "SH", "name": "中证500", "tencent": "sh000905"},
     "000852.SH": {"symbol": "000852", "market": "SH", "name": "中证1000", "tencent": "sh000852"},
+    "000932.SH": {"symbol": "000932", "market": "SH", "name": "中证2000", "tencent": "sh000932"},
+    "000922.SH": {"symbol": "000922", "market": "SH", "name": "中证红利", "tencent": "sh000922"},
     "000688.SH": {"symbol": "000688", "market": "SH", "name": "科创50", "tencent": "sh000688"},
     "399006.SZ": {"symbol": "399006", "market": "SZ", "name": "创业板指", "tencent": "sz399006"},
     "HSI.HK": {"symbol": "HSI", "market": "HK", "name": "恒生指数", "tencent": "hkHSI"},
-    "HSTECH.HK": {"symbol": "HSTECH", "market": "HK", "name": "恒生科技指数", "tencent": "hkHSTECH"}
+    "HSTECH.HK": {"symbol": "HSTECH", "market": "HK", "name": "恒生科技指数", "tencent": "hkHSTECH"},
+    "HSAHP.HK": {"symbol": "HSAHP", "market": "HK", "name": "AH股溢价", "tencent": "hkHSAHP"}
 }
 
 
@@ -71,6 +74,11 @@ def normalize_stock_code(raw: str) -> Optional[Dict[str, str]]:
         return {
             "code": "HSTECH.HK", "symbol": "HSTECH", "market": "HK",
             "tencent_symbol": "hkHSTECH", "asset_type": "index"
+        }
+    if raw_s in ["HSAHP", "AH股溢价", "AH溢价", "HSAHP.HK"]:
+        return {
+            "code": "HSAHP.HK", "symbol": "HSAHP", "market": "HK",
+            "tencent_symbol": "hkHSAHP", "asset_type": "index"
         }
 
     # 2. 港股股票识别

@@ -112,6 +112,48 @@
     "added_at": "2026-09-28 14:59:20"
   },
   {
+    "code": "000932.SH",
+    "symbol": "000932",
+    "market": "SH",
+    "name": "中证2000",
+    "group": "主要指数",
+    "asset_type": "index",
+    "enabled": true,
+    "alert_threshold_pct": 2.0,
+    "monitor_announcement": false,
+    "monitor_intraday": true,
+    "monitor_news": true,
+    "added_at": "2026-11-06 11:00:00"
+  },
+  {
+    "code": "000922.SH",
+    "symbol": "000922",
+    "market": "SH",
+    "name": "中证红利",
+    "group": "主要指数",
+    "asset_type": "index",
+    "enabled": true,
+    "alert_threshold_pct": 1.5,
+    "monitor_announcement": false,
+    "monitor_intraday": true,
+    "monitor_news": true,
+    "added_at": "2026-11-06 11:00:00"
+  },
+  {
+    "code": "HSAHP.HK",
+    "symbol": "HSAHP",
+    "market": "HK",
+    "name": "AH股溢价",
+    "group": "主要指数",
+    "asset_type": "index",
+    "enabled": true,
+    "alert_threshold_pct": 1.5,
+    "monitor_announcement": false,
+    "monitor_intraday": true,
+    "monitor_news": true,
+    "added_at": "2026-11-06 11:00:00"
+  },
+  {
     "code": "512010.SH",
     "symbol": "512010",
     "market": "SH",
