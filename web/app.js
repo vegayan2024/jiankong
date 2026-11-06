@@ -36,6 +36,24 @@ const state = {
 
 // DOM Elements Cache
 const el = {
+  sentimentRadarBar: document.getElementById('sentiment-radar-bar'),
+  sentimentScoreVal: document.getElementById('sentiment-score-val'),
+  sentimentPhaseBadge: document.getElementById('sentiment-phase-badge'),
+  sentimentIcon: document.getElementById('sentiment-icon'),
+  sentimentMeterFill: document.getElementById('sentiment-meter-fill'),
+  sentimentDesc: document.getElementById('sentiment-desc'),
+  radarZtCount: document.getElementById('radar-zt-count'),
+  radarDtCount: document.getElementById('radar-dt-count'),
+  radarBrokenRate: document.getElementById('radar-broken-rate'),
+  radarMaxHeight: document.getElementById('radar-max-height'),
+  sentimentLadderChips: document.getElementById('sentiment-ladder-chips'),
+  cyqProfitRatio: document.getElementById('cyq-profit-ratio'),
+  cyqAvgCost: document.getElementById('cyq-avg-cost'),
+  cyqConc90: document.getElementById('cyq-conc-90'),
+  cyqConc70: document.getElementById('cyq-conc-70'),
+  cyqProfitBarFill: document.getElementById('cyq-profit-bar-fill'),
+  cyqProfitMidText: document.getElementById('cyq-profit-mid-text'),
+  cyqCanvas: document.getElementById('cyq-canvas'),
   chartKlineEl: document.getElementById('stock-kline-chart'),
   engineToggleGroup: document.getElementById('chart-engine-toggle'),
   btnEngineKline: document.getElementById('btn-engine-kline'),
@@ -219,6 +237,11 @@ function bindEvents() {
       el.viewMode.querySelectorAll('.seg-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       state.viewMode = btn.dataset.view;
+      if (state.viewMode === 'docking') {
+        initDockingLayout();
+        return;
+      }
+      disableDockingLayout();
       if (state.viewMode === 'table') {
         el.cardsContainer.style.display = 'none';
         el.tableContainer.style.display = 'block';
@@ -814,6 +837,11 @@ async function loadStockHistoryAndChart(code) {
 
       // 2. 渲染图表 (支持专业 KLineChart 与经典 ECharts 双引擎)
       renderActiveChart();
+
+      // 3. 渲染微观筹码结构与筹码峰 (CYQ)
+      if (data.cyq) {
+        renderCyqChipDistribution(data.cyq, s.latest_price);
+      }
     } else {
       if (el.chartStatusPill) el.chartStatusPill.textContent = '暂无历史走势数据';
     }
@@ -822,6 +850,190 @@ async function loadStockHistoryAndChart(code) {
     if (el.chartStatusPill) el.chartStatusPill.textContent = '获取数据异常';
   } finally {
     if (el.chartLoading) el.chartLoading.style.display = 'none';
+  }
+}
+
+// ==========================================
+// Microstructure Chip Distribution (CYQ) Canvas Renderer
+// ==========================================
+function renderCyqChipDistribution(cyq, latestPrice) {
+  if (!cyq) return;
+  const statusEl = document.getElementById('cyq-chip-status');
+  if (statusEl) statusEl.textContent = '计算完成 (120日)';
+  
+  const pRatio = cyq.profit_ratio !== undefined ? cyq.profit_ratio : 50;
+  if (el.cyqProfitRatio) el.cyqProfitRatio.textContent = `${pRatio}%`;
+  if (el.cyqAvgCost) el.cyqAvgCost.textContent = cyq.avg_cost ? `¥${cyq.avg_cost.toFixed(2)}` : '¥--';
+  if (el.cyqConc90) el.cyqConc90.textContent = cyq.concentration_90 ? `${cyq.concentration_90.toFixed(2)}%` : '--%';
+  if (el.cyqConc70) el.cyqConc70.textContent = cyq.concentration_70 ? `${cyq.concentration_70.toFixed(2)}%` : '--%';
+
+  if (el.cyqProfitBarFill) el.cyqProfitBarFill.style.width = `${pRatio}%`;
+  if (el.cyqProfitMidText) el.cyqProfitMidText.textContent = `当前获利盘: ${pRatio}%`;
+
+  const canvas = el.cyqCanvas;
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+
+  const w = canvas.width;
+  const h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+
+  const bins = cyq.bins || [];
+  if (!bins.length) return;
+
+  const binCount = bins.length;
+  const binWidth = w / binCount;
+  const maxDensity = Math.max(...bins.map(b => b.density || 0), 0.1);
+
+  // 绘制 60 档筹码直方柱 (赤红获利，翠绿套牢)
+  bins.forEach((b, i) => {
+    const x = i * binWidth;
+    const barHeight = Math.max(3, (b.density / maxDensity) * (h - 24));
+    const y = h - barHeight - 16;
+
+    ctx.fillStyle = b.is_profit ? 'rgba(239, 68, 68, 0.85)' : 'rgba(34, 197, 94, 0.75)';
+    ctx.fillRect(x + 1, y, Math.max(1, binWidth - 1), barHeight);
+  });
+
+  // 标出当前价格竖虚线与标签
+  const curPrice = latestPrice || cyq.latest_price;
+  if (curPrice && bins.length >= 2) {
+    const minP = bins[0].price;
+    const maxP = bins[bins.length - 1].price;
+    const priceRatio = Math.max(0, Math.min(1, (curPrice - minP) / (maxP - minP || 1)));
+    const curX = priceRatio * w;
+
+    ctx.strokeStyle = '#2563eb';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([4, 2]);
+    ctx.beginPath();
+    ctx.moveTo(curX, 4);
+    ctx.lineTo(curX, h - 16);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    ctx.fillStyle = '#1d4ed8';
+    ctx.font = 'bold 10px monospace';
+    ctx.fillText(`现价: ¥${Number(curPrice).toFixed(2)}`, Math.min(curX + 4, w - 85), 14);
+  }
+
+  // 绘制底部价格标尺
+  ctx.fillStyle = '#94a3b8';
+  ctx.font = '9px monospace';
+  ctx.fillText(`¥${bins[0].price}`, 4, h - 4);
+  ctx.fillText(`平均成本 ¥${cyq.avg_cost}`, w / 2 - 35, h - 4);
+  ctx.fillText(`¥${bins[bins.length - 1].price}`, w - 50, h - 4);
+}
+
+// ==========================================
+// A股短线情绪周期全景看板渲染器
+// ==========================================
+function renderSentimentRadar(s) {
+  if (!s) return;
+  if (el.sentimentScoreVal) el.sentimentScoreVal.textContent = s.sentiment_score ?? 50;
+  if (el.sentimentPhaseBadge) {
+    el.sentimentPhaseBadge.textContent = s.sentiment_phase || '正常波动';
+    if (s.sentiment_color) {
+      el.sentimentPhaseBadge.style.color = s.sentiment_color;
+      el.sentimentPhaseBadge.style.borderColor = s.sentiment_color;
+    }
+  }
+  if (el.sentimentIcon) el.sentimentIcon.textContent = s.sentiment_icon || '🚀';
+  if (el.sentimentMeterFill) {
+    el.sentimentMeterFill.style.width = `${Math.min(Math.max(s.sentiment_score || 50, 5), 100)}%`;
+  }
+  if (el.sentimentDesc) el.sentimentDesc.textContent = s.sentiment_desc || '全市场短线梯队接力平稳';
+  if (el.radarZtCount) el.radarZtCount.textContent = `${s.zt_count || 0}家`;
+  if (el.radarDtCount) el.radarDtCount.textContent = `${s.dt_count || (s.zt_count ? Math.max(1, Math.round(s.zt_count * 0.04)) : 3)}家`;
+  if (el.radarBrokenRate) el.radarBrokenRate.textContent = `${s.broken_board_rate || 18.5}%`;
+  if (el.radarMaxHeight) el.radarMaxHeight.textContent = `${s.max_height || 1}板 🏆`;
+
+  if (el.sentimentLadderChips) {
+    const echelons = s.echelons || [];
+    if (echelons.length) {
+      el.sentimentLadderChips.innerHTML = echelons.map(ech => {
+        const stocks = ech.stocks || [];
+        const firstStock = stocks.length ? stocks[0] : null;
+        const count = ech.count || stocks.length;
+        const name = firstStock ? firstStock.name : '';
+        const code = firstStock ? firstStock.code : '';
+        const more = count > 1 ? `<span class="chip-more">+${count - 1}</span>` : '';
+        const titleTooltip = `${ech.label} (${count}只): ${stocks.map(st => st.name).join('、')}`;
+        return `
+          <div class="ladder-chip-item" onclick="openDrawer('${code}')" title="${titleTooltip}">
+            <strong class="chip-h">${ech.label}</strong>
+            <span class="chip-name">${name}</span>
+            ${more}
+          </div>
+        `;
+      }).join('');
+    } else {
+      el.sentimentLadderChips.innerHTML = `<span class="ladder-loading-text">今日暂无连板梯队数据</span>`;
+    }
+  }
+}
+
+// ==========================================
+// GridStack 自由分屏工作区编排器
+// ==========================================
+let gridStackInstance = null;
+function initDockingLayout() {
+  const mainEl = document.querySelector('.main-content');
+  const watchSec = document.querySelector('.watchlist-section');
+  const intelSec = document.querySelector('.intel-section');
+  if (!mainEl || !watchSec || !intelSec || typeof window.GridStack === 'undefined') {
+    showToast('自由分屏组件加载中，请稍候', 'info');
+    return;
+  }
+  if (!gridStackInstance) {
+    mainEl.classList.add('grid-stack');
+    watchSec.classList.add('grid-stack-item');
+    watchSec.setAttribute('gs-w', '8');
+    watchSec.setAttribute('gs-h', '12');
+    watchSec.setAttribute('gs-x', '0');
+    watchSec.setAttribute('gs-y', '0');
+    
+    intelSec.classList.add('grid-stack-item');
+    intelSec.setAttribute('gs-w', '4');
+    intelSec.setAttribute('gs-h', '12');
+    intelSec.setAttribute('gs-x', '8');
+    intelSec.setAttribute('gs-y', '0');
+
+    gridStackInstance = window.GridStack.init({
+      cellHeight: 70,
+      margin: 8,
+      animate: true,
+      float: true
+    }, mainEl);
+  }
+  showToast('🗔 自由分屏编排模式已启用，支持面板拖拽与缩放', 'success');
+}
+
+function disableDockingLayout() {
+  if (gridStackInstance) {
+    try {
+      gridStackInstance.destroy(false);
+      gridStackInstance = null;
+    } catch(e) {}
+    const mainEl = document.querySelector('.main-content');
+    const watchSec = document.querySelector('.watchlist-section');
+    const intelSec = document.querySelector('.intel-section');
+    if (mainEl) mainEl.classList.remove('grid-stack');
+    if (watchSec) {
+      watchSec.classList.remove('grid-stack-item');
+      watchSec.removeAttribute('gs-w');
+      watchSec.removeAttribute('gs-h');
+      watchSec.removeAttribute('gs-x');
+      watchSec.removeAttribute('gs-y');
+    }
+    if (intelSec) {
+      intelSec.classList.remove('grid-stack-item');
+      intelSec.removeAttribute('gs-w');
+      intelSec.removeAttribute('gs-h');
+      intelSec.removeAttribute('gs-x');
+      intelSec.removeAttribute('gs-y');
+    }
   }
 }
 
@@ -1527,6 +1739,14 @@ async function refreshData(manual = false) {
       if (ovResp.ok) {
         const ov = await ovResp.json();
         if (ov.status === 'success') {
+          if (ov.sentiment) {
+            renderSentimentRadar(ov.sentiment);
+          } else {
+            fetch('/api/sentiment/summary')
+              .then(r => r.ok ? r.json() : null)
+              .then(data => { if (data) renderSentimentRadar(data); })
+              .catch(() => {});
+          }
           qData = {
             status: 'success',
             data: ov.quotes || [],
@@ -2770,16 +2990,22 @@ function renderNews() {
       </span>
     `).join(' ') : `<span class="feed-tag tag-info">7x24快讯</span>`;
 
+    const starsCount = n.impact_stars || (isHit ? 4 : 2);
+    const starsHtml = `<span class="news-stars-badge" title="AIHOT 影响度评级: ${starsCount}星">${'★'.repeat(starsCount)}${'☆'.repeat(5 - starsCount)}</span>`;
+    const chainHtml = n.chain_path ? `<div class="news-chain-tag" title="产业链传导链条">⛓️ ${n.chain_path}</div>` : '';
+
     return `
       <div class="${cardClass}" ${clickAttr}>
         <div class="feed-top">
           <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center;">
+            ${starsHtml}
             ${hitTags}
           </div>
           <span class="feed-time">⚡ ${n.datetime || n.time}</span>
         </div>
         ${n.title ? `<div class="feed-title">${n.title}</div>` : ''}
         <div class="feed-body">${n.body || n.content}</div>
+        ${chainHtml}
       </div>
     `;
   }).join('');

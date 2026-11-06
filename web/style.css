@@ -3008,3 +3008,336 @@ body {
   border-radius: 3px;
 }
 
+/* ========================================================
+   A股短线情绪周期全景看板 (连板天梯 / 情绪温度计 / 炸板率)
+   ======================================================== */
+.sentiment-radar-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  background: #ffffff;
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-md);
+  padding: 10px 16px;
+  margin: 0 16px 12px 16px;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05);
+}
+
+.sentiment-thermo-col {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 250px;
+}
+
+.thermo-main-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.thermo-icon {
+  font-size: 15px;
+}
+
+.thermo-title {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.thermo-score {
+  font-size: 16px;
+  font-weight: 800;
+  font-family: var(--font-mono);
+  color: #f97316;
+}
+
+.thermo-score-unit {
+  font-size: 10.5px;
+  color: var(--text-muted);
+  margin-right: 4px;
+}
+
+.sentiment-phase-tag {
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 10px;
+  background: #ffedd5;
+  color: #c2410c;
+  border: 1px solid #fed7aa;
+}
+
+.thermo-track {
+  width: 100%;
+  height: 6px;
+  background: #e2e8f0;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.thermo-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #06b6d4, #eab308, #f97316, #ef4444);
+  border-radius: 3px;
+  transition: width 0.4s ease;
+}
+
+.thermo-desc {
+  font-size: 10px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sentiment-stats-col {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 0 16px;
+  border-left: 1px solid var(--border-subtle);
+  border-right: 1px solid var(--border-subtle);
+}
+
+.s-metric-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+}
+
+.s-label {
+  font-size: 10px;
+  color: var(--text-dim);
+}
+
+.s-val {
+  font-size: 13px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+}
+
+.zt-red { color: #dc2626; }
+.dt-green { color: #16a34a; }
+.warn-yellow { color: #d97706; }
+.lbc-purple { color: #7c3aed; }
+
+.sentiment-ladder-col {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 280px;
+}
+
+.ladder-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.ladder-lbl {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.ladder-chips-box {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.ladder-chip-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 2px 7px;
+  border-radius: 12px;
+  font-size: 10.5px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.ladder-chip-item:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  transform: translateY(-1px);
+}
+
+.chip-h {
+  background: #fee2e2;
+  color: #b91c1c;
+  padding: 0 4px;
+  border-radius: 6px;
+  font-size: 9.5px;
+  font-weight: 800;
+}
+
+.chip-name {
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.chip-more {
+  color: #64748b;
+  font-size: 9.5px;
+}
+
+.ladder-loading-text {
+  font-size: 10.5px;
+  color: var(--text-muted);
+}
+
+/* ========================================================
+   微观筹码结构 (CYQ 筹码峰) 卡片与画布
+   ======================================================== */
+.cyq-card {
+  background: #f8fafc;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cyq-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.cyq-header-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cyq-title-icon {
+  font-size: 14px;
+}
+
+.cyq-title-text {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.cyq-badge {
+  font-size: 9.5px;
+  background: #e0f2fe;
+  color: #0284c7;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.cyq-hud-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 8px 12px;
+}
+
+.cyq-hud-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cyq-hud-label {
+  font-size: 10px;
+  color: var(--text-dim);
+}
+
+.cyq-hud-val {
+  font-size: 12.5px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  color: var(--text-main);
+}
+
+.cyq-visual-box {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cyq-profit-meter {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.cyq-profit-bar {
+  height: 8px;
+  background: #86efac;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.cyq-profit-bar-fill {
+  height: 100%;
+  background: #ef4444;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.cyq-profit-meter-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 9.5px;
+  color: var(--text-muted);
+}
+
+.loss-lbl { color: #16a34a; }
+.mid-lbl { font-weight: 700; color: #dc2626; }
+.win-lbl { color: #dc2626; }
+
+.cyq-canvas-wrapper {
+  width: 100%;
+  height: 110px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+#cyq-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* 7x24快讯 AIHOT 影响度星级与产业链传导 */
+.news-stars-badge {
+  color: #f59e0b;
+  font-size: 10.5px;
+  font-weight: 700;
+  margin-right: 5px;
+  letter-spacing: -1px;
+}
+
+.news-chain-tag {
+  display: inline-block;
+  font-size: 10px;
+  color: #047857;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  padding: 1px 6px;
+  border-radius: 4px;
+  margin-top: 4px;
+  font-weight: 600;
+}
+

@@ -954,10 +954,19 @@ def get_stock_history_and_valuation(code: str, latest_prev_close: Optional[float
         "roe_status": roe_status,
     }
 
+    # 5. 微观筹码分布 (CYQ 筹码峰) 计算
+    cyq_data = None
+    try:
+        from scripts.cyq_engine import compute_cyq
+        cyq_data = compute_cyq(daily_klines, latest_price)
+    except Exception as e:
+        logger.warning(f"标的 {info['full_code']} 筹码分布计算异常: {e}")
+
     final_payload = {
         "status": "success",
         "updated_date": today_str,
         "summary": summary,
+        "cyq": cyq_data,
         "monthly_history": monthly_klines,
         "daily_history": daily_klines,
         "valuation_history": val_list,

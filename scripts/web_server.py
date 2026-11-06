@@ -441,6 +441,37 @@ def get_watchlist_kw_map():
     return kw_map
 
 
+def deduce_news_intelligence(text: str, matched_stocks: list) -> tuple:
+    """轻量规则推理电报新闻影响度评级 (1~5星) 与产业链传导路径 (Chain Path)"""
+    stars = 2
+    chain = ""
+    # 5星：顶层政策、央行、国常会、特大系统性事件
+    if any(k in text for k in ["央行", "降准", "降息", "政治局", "国务院", "印花税", "特别国债", "中央汇金", "证监会发布"]):
+        stars = 5
+    elif len(matched_stocks) > 0 or any(k in text for k in ["突破", "暴涨", "涨停", "大涨", "历史新高", "业绩超预期", "重组", "芯片", "算力", "光模块", "机器人", "低空经济"]):
+        stars = 4
+    elif any(k in text for k in ["发改委", "工信部", "财政部", "商务部", "美联储", "CPI", "PPI"]):
+        stars = 3
+
+    # 产业链传导路径推理
+    if any(k in text for k in ["光模块", "CPO", "800G", "1.6T", "光芯片"]):
+        chain = "光芯片/激光器 ➔ CPO封装 ➔ 算力服务器 ➔ 云厂商"
+    elif any(k in text for k in ["机器人", "灵巧手", "减速器", "丝杠", "人形机器人"]):
+        chain = "滚珠丝杠/减速器 ➔ 力控传感器/灵巧手 ➔ 人形整机"
+    elif any(k in text for k in ["低空经济", "eVTOL", "飞行汽车", "通航"]):
+        chain = "航空碳纤维 ➔ 飞控航电/动力电池 ➔ eVTOL整机"
+    elif any(k in text for k in ["固态电池", "硫化物", "氧化物", "锂金属", "半固态"]):
+        chain = "固态电解质 ➔ 硅碳负极 ➔ 高镍正极 ➔ 固态电池装车"
+    elif any(k in text for k in ["半导体", "先进封装", "CoWoS", "光刻机", "EDA"]):
+        chain = "EDA/光刻胶 ➔ 晶圆代工 ➔ 先进封装(CoWoS) ➔ 算力芯片"
+    elif any(k in text for k in ["储能", "逆变器", "虚拟电厂", "电网"]):
+        chain = "储能电芯 ➔ PCS逆变器 ➔ 工商业储能 ➔ 智能微电网"
+    elif any(k in text for k in ["煤炭", "火电", "绿电", "特高压"]):
+        chain = "煤炭长协 ➔ 坑口火电 ➔ 特高压消纳 ➔ 绿电交易"
+
+    return stars, chain
+
+
 def fetch_flash_news_sync():
     """抓取全网 7x24 财经电报流 (复用 HTTP Keep-Alive 连接池，使用 BoundedIdSet FIFO 防重复)"""
     global recent_news, seen_news_ids
@@ -492,6 +523,8 @@ def fetch_flash_news_sync():
                                 "asset_type": s.get("asset_type", "stock")
                             })
 
+                stars, chain = deduce_news_intelligence(clean_text, matched_list)
+
                 new_items.append({
                     "id": news_id,
                     "time": create_time,
@@ -503,6 +536,8 @@ def fetch_flash_news_sync():
                     "body": body or clean_text,
                     "is_hit": len(matched_list) > 0,
                     "matched_stocks": matched_list,
+                    "impact_stars": stars,
+                    "chain_path": chain,
                     "docurl": item.get("docurl", "")
                 })
 
@@ -634,12 +669,24 @@ async def get_features_endpoint():
     return {"status": "success", "data": get_feature_flags()}
 
 
+@app.get("/api/sentiment/summary")
+async def get_sentiment_summary_endpoint():
+    """获取全市场短线情绪温度计、连板天梯与打板情绪"""
+    try:
+        from scripts.sentiment_engine import sentiment_engine
+        res = await asyncio.to_thread(sentiment_engine.get_sentiment_summary)
+        return res
+    except Exception as e:
+        logger.error(f"获取短线情绪数据异常: {e}")
+        return {"status": "error", "message": str(e)}
+
+
 @app.get("/api/overview")
 async def get_overview(group: Optional[str] = None, market: Optional[str] = None,
                        asset_type: Optional[str] = None, search: Optional[str] = None,
                        only_hit_news: bool = False):
     """
-    【高性能聚合接口】一次性返回 行情矩阵、预警、信披、7x24快讯 及 宏观统计指标
+    【高性能聚合接口】一次性返回 行情矩阵、预警、信披、7x24快讯、宏观指标 及 A股短线情绪周期
     替代客户端每 3 秒发起 4 个独立 HTTP 请求，降低 75% 网络请求数，极大提升响应速度与稳定性
     """
     result = list(cached_quotes.values())
@@ -664,6 +711,14 @@ async def get_overview(group: Optional[str] = None, market: Optional[str] = None
     now_dt = datetime.now()
     filtered_news = [n for n in recent_news if n.get("is_hit")] if only_hit_news else list(recent_news[:60])
 
+    # 获取全市场短线情绪温度计与连板天梯
+    sentiment_data = None
+    try:
+        from scripts.sentiment_engine import sentiment_engine
+        sentiment_data = sentiment_engine.get_sentiment_summary()
+    except Exception as e:
+        logger.debug(f"聚合概览读取情绪数据跳过: {e}")
+
     return {
         "status": "success",
         "date": now_dt.strftime("%Y-%m-%d"),
@@ -682,6 +737,7 @@ async def get_overview(group: Optional[str] = None, market: Optional[str] = None
             "news_count": len(recent_news),
             "news_hit_count": sum(1 for n in recent_news if n.get("is_hit"))
         },
+        "sentiment": sentiment_data,
         "quotes": result,
         "alerts": recent_alerts[:40],
         "announcements": recent_announcements[:30],

@@ -1,5 +1,19 @@
 [
   {
+    "code": "HSAHP.HK",
+    "symbol": "HSAHP",
+    "market": "HK",
+    "name": "AH股溢价",
+    "group": "主要指数",
+    "asset_type": "index",
+    "enabled": true,
+    "alert_threshold_pct": 1.5,
+    "monitor_announcement": false,
+    "monitor_intraday": true,
+    "monitor_news": true,
+    "added_at": "2026-11-06 11:00:00"
+  },
+  {
     "code": "HSI.HK",
     "symbol": "HSI",
     "market": "HK",
@@ -98,6 +112,20 @@
     "added_at": "2026-09-28 14:59:20"
   },
   {
+    "code": "000922.SH",
+    "symbol": "000922",
+    "market": "SH",
+    "name": "中证红利",
+    "group": "主要指数",
+    "asset_type": "index",
+    "enabled": true,
+    "alert_threshold_pct": 1.5,
+    "monitor_announcement": false,
+    "monitor_intraday": true,
+    "monitor_news": true,
+    "added_at": "2026-11-06 11:00:00"
+  },
+  {
     "code": "399006.SZ",
     "symbol": "399006",
     "market": "SZ",
@@ -124,34 +152,6 @@
     "monitor_intraday": true,
     "monitor_news": true,
     "added_at": "2026-11-06 12:00:00"
-  },
-  {
-    "code": "000922.SH",
-    "symbol": "000922",
-    "market": "SH",
-    "name": "中证红利",
-    "group": "主要指数",
-    "asset_type": "index",
-    "enabled": true,
-    "alert_threshold_pct": 1.5,
-    "monitor_announcement": false,
-    "monitor_intraday": true,
-    "monitor_news": true,
-    "added_at": "2026-11-06 11:00:00"
-  },
-  {
-    "code": "HSAHP.HK",
-    "symbol": "HSAHP",
-    "market": "HK",
-    "name": "AH股溢价",
-    "group": "主要指数",
-    "asset_type": "index",
-    "enabled": true,
-    "alert_threshold_pct": 1.5,
-    "monitor_announcement": false,
-    "monitor_intraday": true,
-    "monitor_news": true,
-    "added_at": "2026-11-06 11:00:00"
   },
   {
     "code": "512010.SH",
@@ -840,6 +840,20 @@
     "asset_type": "stock"
   },
   {
+    "code": "600141.SH",
+    "symbol": "600141",
+    "market": "SH",
+    "name": "兴发集团",
+    "group": "自选",
+    "asset_type": "stock",
+    "enabled": true,
+    "alert_threshold_pct": 3.5,
+    "monitor_announcement": true,
+    "monitor_intraday": true,
+    "monitor_news": true,
+    "added_at": "2026-11-06 15:25:05"
+  },
+  {
     "code": "600160.SH",
     "symbol": "600160",
     "market": "SH",
@@ -1008,6 +1022,20 @@
     "asset_type": "stock"
   },
   {
+    "code": "600346.SH",
+    "symbol": "600346",
+    "market": "SH",
+    "name": "恒力石化",
+    "group": "自选",
+    "asset_type": "stock",
+    "enabled": true,
+    "alert_threshold_pct": 3.5,
+    "monitor_announcement": true,
+    "monitor_intraday": true,
+    "monitor_news": true,
+    "added_at": "2026-11-06 15:24:18"
+  },
+  {
     "code": "600352.SH",
     "symbol": "600352",
     "market": "SH",
@@ -1096,9 +1124,9 @@
     "symbol": "600426",
     "market": "SH",
     "name": "华鲁恒升",
-    "group": "化工",
+    "group": "自选",
     "enabled": true,
-    "alert_threshold_pct": 3.0,
+    "alert_threshold_pct": 3.5,
     "monitor_announcement": true,
     "monitor_intraday": true,
     "monitor_news": true,
@@ -1216,6 +1244,20 @@
     "monitor_news": true,
     "added_at": "2026-09-28 14:39:17",
     "asset_type": "stock"
+  },
+  {
+    "code": "600596.SH",
+    "symbol": "600596",
+    "market": "SH",
+    "name": "新安股份",
+    "group": "自选",
+    "asset_type": "stock",
+    "enabled": true,
+    "alert_threshold_pct": 3.5,
+    "monitor_announcement": true,
+    "monitor_intraday": true,
+    "monitor_news": true,
+    "added_at": "2026-11-06 15:24:42"
   },
   {
     "code": "600618.SH",
@@ -2048,9 +2090,9 @@
     "symbol": "000830",
     "market": "SZ",
     "name": "鲁西化工",
-    "group": "化工",
+    "group": "自选",
     "enabled": true,
-    "alert_threshold_pct": 3.0,
+    "alert_threshold_pct": 3.5,
     "monitor_announcement": true,
     "monitor_intraday": true,
     "monitor_news": true,
@@ -2384,9 +2426,9 @@
     "symbol": "002237",
     "market": "SZ",
     "name": "恒邦股份",
-    "group": "矿业",
+    "group": "自选",
     "enabled": true,
-    "alert_threshold_pct": 3.0,
+    "alert_threshold_pct": 3.5,
     "monitor_announcement": true,
     "monitor_intraday": true,
     "monitor_news": true,
@@ -2534,6 +2576,20 @@
     "asset_type": "stock"
   },
   {
+    "code": "002738.SZ",
+    "symbol": "002738",
+    "market": "SZ",
+    "name": "中矿资源",
+    "group": "自选",
+    "asset_type": "stock",
+    "enabled": true,
+    "alert_threshold_pct": 3.5,
+    "monitor_announcement": true,
+    "monitor_intraday": true,
+    "monitor_news": true,
+    "added_at": "2026-11-06 15:23:29"
+  },
+  {
     "code": "002748.SZ",
     "symbol": "002748",
     "market": "SZ",
@@ -2566,9 +2622,9 @@
     "symbol": "300034",
     "market": "SZ",
     "name": "钢研高纳",
-    "group": "通用资源",
+    "group": "自选",
     "enabled": true,
-    "alert_threshold_pct": 3.0,
+    "alert_threshold_pct": 3.5,
     "monitor_announcement": true,
     "monitor_intraday": true,
     "monitor_news": true,

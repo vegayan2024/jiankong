@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>A股 / 港股 / 指数 / ETF 资产实时监控系统 - Quant Radar (Jiankong)</title>
   <link rel="stylesheet" href="style.css">
-  
+  <link rel="stylesheet" href="gridstack.min.css">
 </head>
 <body>
   <div id="app" class="dashboard-layout">
@@ -124,6 +124,7 @@
           <button class="seg-btn active" data-view="grouped" title="同类型/板块分排归并陈列 (推荐)">⊞ 分组排</button>
           <button class="seg-btn" data-view="card" title="平铺网格视图">▦ 网格</button>
           <button class="seg-btn" data-view="table" title="紧凑数据表视图">▤ 列表</button>
+          <button class="seg-btn" data-view="docking" id="btn-view-docking" title="自由分屏编排工作区 (Gridstack)">🗔 自由分屏</button>
         </div>
       </div>
 
@@ -136,6 +137,55 @@
         </div>
       </div>
     </section>
+
+    <!-- A股短线情绪周期与连板梯队全景看板 (高密度专业短线雷达) -->
+    <div id="sentiment-radar-bar" class="sentiment-radar-bar">
+      <div class="sentiment-thermo-col">
+        <div class="thermo-main-line">
+          <span id="sentiment-icon" class="thermo-icon">🚀</span>
+          <span class="thermo-title">A股短线情绪温度:</span>
+          <span id="sentiment-score-val" class="thermo-score">62</span>
+          <span class="thermo-score-unit">/100</span>
+          <span id="sentiment-phase-badge" class="sentiment-phase-tag phase-active">主升共振</span>
+        </div>
+        <div class="thermo-track">
+          <div id="sentiment-meter-fill" class="thermo-fill" style="width: 62%;"></div>
+        </div>
+        <div class="thermo-desc" id="sentiment-desc">赚钱效应扩散，短线主线题材与龙头连板共振上行</div>
+      </div>
+
+      <div class="sentiment-stats-col">
+        <div class="s-metric-box">
+          <span class="s-label">全市场涨停</span>
+          <span id="radar-zt-count" class="s-val zt-red">84家</span>
+        </div>
+        <div class="s-metric-box">
+          <span class="s-label">跌停家数</span>
+          <span id="radar-dt-count" class="s-val dt-green">3家</span>
+        </div>
+        <div class="s-metric-box">
+          <span class="s-label">封板炸板率</span>
+          <span id="radar-broken-rate" class="s-val warn-yellow">18.5%</span>
+        </div>
+        <div class="s-metric-box">
+          <span class="s-label">最高连板</span>
+          <span id="radar-max-height" class="s-val lbc-purple">5板 🏆</span>
+        </div>
+      </div>
+
+      <div class="sentiment-ladder-col">
+        <div class="ladder-header">
+          <span class="ladder-fire">🔥</span>
+          <span class="ladder-lbl">连板天梯梯队:</span>
+        </div>
+        <div id="sentiment-ladder-chips" class="ladder-chips-box">
+          <span class="ladder-chip-item"><strong class="chip-h">5板</strong><span class="chip-name">海立股份</span></span>
+          <span class="ladder-chip-item"><strong class="chip-h">4板</strong><span class="chip-name">蓝丰生化</span></span>
+          <span class="ladder-chip-item"><strong class="chip-h">3板</strong><span class="chip-name">日出东方</span><span class="chip-more">+5</span></span>
+          <span class="ladder-chip-item"><strong class="chip-h">2板</strong><span class="chip-name">英洛华</span><span class="chip-more">+8</span></span>
+        </div>
+      </div>
+    </div>
 
     <!-- 主屏分栏 (72% 自选矩阵 + 28% 情报雷达) -->
     <main class="main-content">
@@ -621,6 +671,58 @@
           </div>
         </div>
 
+        <!-- 微观筹码结构与筹码峰 (CYQ) 量化诊断卡 -->
+        <div class="cyq-card" id="drawer-cyq-section">
+          <div class="cyq-header">
+            <div class="cyq-header-left">
+              <span class="cyq-title-icon">🎯</span>
+              <span class="cyq-title-text">微观筹码结构 (CYQ 筹码峰)</span>
+              <span class="cyq-badge">120日换手衰减模型</span>
+            </div>
+            <div class="cyq-header-right" id="cyq-chip-status">
+              计算完成
+            </div>
+          </div>
+
+          <div class="cyq-hud-grid">
+            <div class="cyq-hud-item">
+              <span class="cyq-hud-label">获利比例:</span>
+              <span class="cyq-hud-val" id="cyq-profit-ratio">--%</span>
+            </div>
+            <div class="cyq-hud-item">
+              <span class="cyq-hud-label">平均成本:</span>
+              <span class="cyq-hud-val" id="cyq-avg-cost">¥--</span>
+            </div>
+            <div class="cyq-hud-item">
+              <span class="cyq-hud-label">90%筹码集中度:</span>
+              <span class="cyq-hud-val" id="cyq-conc-90">--%</span>
+            </div>
+            <div class="cyq-hud-item">
+              <span class="cyq-hud-label">70%筹码集中度:</span>
+              <span class="cyq-hud-val" id="cyq-conc-70">--%</span>
+            </div>
+          </div>
+
+          <div class="cyq-visual-box">
+            <!-- 获利盘比例刻度条 -->
+            <div class="cyq-profit-meter">
+              <div class="cyq-profit-bar">
+                <div id="cyq-profit-bar-fill" class="cyq-profit-bar-fill" style="width: 50%;"></div>
+              </div>
+              <div class="cyq-profit-meter-labels">
+                <span class="loss-lbl">全盘套牢 0%</span>
+                <span class="mid-lbl" id="cyq-profit-mid-text">当前获利盘: 50%</span>
+                <span class="win-lbl">全面获利 100%</span>
+              </div>
+            </div>
+
+            <!-- 筹码分布直方图 Canvas 画布 -->
+            <div class="cyq-canvas-wrapper">
+              <canvas id="cyq-canvas" width="700" height="110"></canvas>
+            </div>
+          </div>
+        </div>
+
         <!-- 实时行情指标指标卡 -->
         <div>
           <div style="font-size:11px; font-weight:600; color:var(--text-dim); margin-bottom:8px;">实时量价关键指标</div>
@@ -653,6 +755,7 @@
 
   <script src="klinecharts.min.js"></script>
   <script src="echarts.min.js"></script>
+  <script src="gridstack-all.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
