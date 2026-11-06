@@ -25,14 +25,21 @@ const state = {
   previousPrices: new Map(),
   stockHistoryCache: new Map(),
   chartInstance: null,
+  klineInstance: null,
+  chartEngine: localStorage.getItem('jiankong_chart_engine') || 'kline',
   currentHistoryData: null,
   activeChartMode: 'all',
   activeChartRange: 'all',
-  isDrawerExpanded: false
+  isDrawerExpanded: false,
+  features: {}
 };
 
 // DOM Elements Cache
 const el = {
+  chartKlineEl: document.getElementById('stock-kline-chart'),
+  engineToggleGroup: document.getElementById('chart-engine-toggle'),
+  btnEngineKline: document.getElementById('btn-engine-kline'),
+  btnEngineEcharts: document.getElementById('btn-engine-echarts'),
   updateTimer: document.getElementById('update-timer'),
   marketFullDatetime: document.getElementById('market-full-datetime'),
   marketSessionBadge: document.getElementById('market-session-badge'),
@@ -152,6 +159,15 @@ function debounce(fn, delay = 120) {
 // ==========================================
 async function initApp() {
   bindEvents();
+  try {
+    const fResp = await fetch('/api/features');
+    if (fResp.ok) {
+      const fJson = await fResp.json();
+      state.features = fJson.data || {};
+    }
+  } catch (e) {
+    console.debug('Load features failed, use defaults', e);
+  }
   await loadGroups();
   await refreshData();
   await fetchThemesSummary();
@@ -435,13 +451,25 @@ function bindEvents() {
   if (el.btnExpandDrawer) el.btnExpandDrawer.addEventListener('click', toggleDrawerExpand);
 
   // Stock History Chart Controls
+  if (el.engineToggleGroup) {
+    el.engineToggleGroup.querySelectorAll('.engine-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        el.engineToggleGroup.querySelectorAll('.engine-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        state.chartEngine = btn.dataset.engine;
+        localStorage.setItem('jiankong_chart_engine', state.chartEngine);
+        renderActiveChart();
+      });
+    });
+  }
+
   if (el.chartModeTabs) {
     el.chartModeTabs.querySelectorAll('.chart-ctrl-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         el.chartModeTabs.querySelectorAll('.chart-ctrl-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         state.activeChartMode = btn.dataset.mode;
-        renderStockHistoryChart();
+        renderActiveChart();
       });
     });
   }
@@ -452,7 +480,7 @@ function bindEvents() {
         el.chartRangeTabs.querySelectorAll('.chart-ctrl-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         state.activeChartRange = btn.dataset.range;
-        renderStockHistoryChart();
+        renderActiveChart();
       });
     });
   }
@@ -460,6 +488,9 @@ function bindEvents() {
   window.addEventListener('resize', () => {
     if (state.chartInstance) {
       state.chartInstance.resize();
+    }
+    if (state.klineInstance) {
+      state.klineInstance.resize();
     }
   });
 
@@ -565,6 +596,9 @@ function toggleDrawerExpand() {
   setTimeout(() => {
     if (state.chartInstance) {
       state.chartInstance.resize();
+    }
+    if (state.klineInstance) {
+      state.klineInstance.resize();
     }
   }, 260);
 }
@@ -778,8 +812,8 @@ async function loadStockHistoryAndChart(code) {
         }
       }
 
-      // 2. 渲染 ECharts
-      renderStockHistoryChart();
+      // 2. 渲染图表 (支持专业 KLineChart 与经典 ECharts 双引擎)
+      renderActiveChart();
     } else {
       if (el.chartStatusPill) el.chartStatusPill.textContent = '暂无历史走势数据';
     }
@@ -788,6 +822,148 @@ async function loadStockHistoryAndChart(code) {
     if (el.chartStatusPill) el.chartStatusPill.textContent = '获取数据异常';
   } finally {
     if (el.chartLoading) el.chartLoading.style.display = 'none';
+  }
+}
+
+// ==========================================
+// Dual Chart Engine Dispatcher
+// ==========================================
+function renderActiveChart() {
+  const preferEngine = state.chartEngine || 'kline';
+  const hasKline = typeof window.klinecharts !== 'undefined';
+  const useKline = preferEngine === 'kline' && hasKline;
+
+  if (el.chartKlineEl && el.chartEl) {
+    if (useKline) {
+      el.chartKlineEl.style.display = 'block';
+      el.chartEl.style.display = 'none';
+      renderKLineChart();
+    } else {
+      el.chartKlineEl.style.display = 'none';
+      el.chartEl.style.display = 'block';
+      renderStockHistoryChart();
+    }
+  }
+
+  // Update button active state
+  if (el.btnEngineKline && el.btnEngineEcharts) {
+    el.btnEngineKline.classList.toggle('active', useKline);
+    el.btnEngineEcharts.classList.toggle('active', !useKline);
+  }
+}
+
+function renderKLineChart() {
+  if (typeof window.klinecharts === 'undefined' || !el.chartKlineEl) return;
+  const data = state.currentHistoryData;
+  if (!data) return;
+
+  const range = state.activeChartRange || 'all';
+  const mode = state.activeChartMode || 'all';
+
+  // 1. 确定时间截断点
+  let cutoffDate = '1970-01-01';
+  const now = new Date();
+  if (range === '1y') {
+    const d = new Date(now); d.setFullYear(d.getFullYear() - 1);
+    cutoffDate = d.toISOString().split('T')[0];
+  } else if (range === '3y') {
+    const d = new Date(now); d.setFullYear(d.getFullYear() - 3);
+    cutoffDate = d.toISOString().split('T')[0];
+  } else if (range === '5y') {
+    const d = new Date(now); d.setFullYear(d.getFullYear() - 5);
+    cutoffDate = d.toISOString().split('T')[0];
+  } else if (range === '10y') {
+    const d = new Date(now); d.setFullYear(d.getFullYear() - 10);
+    cutoffDate = d.toISOString().split('T')[0];
+  }
+
+  // 2. 选取适宜粒度的价格序列
+  let rawKlines = [];
+  if ((range === '1y' || range === '3y') && data.daily_history && data.daily_history.length) {
+    rawKlines = data.daily_history.filter(k => k.date >= cutoffDate);
+  } else {
+    rawKlines = (data.monthly_history || []).filter(k => k.date >= cutoffDate);
+    if (!rawKlines.length && data.daily_history) {
+      rawKlines = data.daily_history.filter(k => k.date >= cutoffDate);
+    }
+  }
+
+  if (!rawKlines.length) return;
+
+  // 转换为 KLineChart 标准数据格式
+  const klineList = rawKlines.map(k => {
+    const ts = new Date(k.date).getTime();
+    const open = Number(k.open || k.close);
+    const close = Number(k.close);
+    const high = Number(k.high || Math.max(open, close));
+    const low = Number(k.low || Math.min(open, close));
+    const volume = Number(k.volume || 0);
+    const turnover = Number(k.amount || 0);
+    return {
+      timestamp: ts,
+      open,
+      high,
+      low,
+      close,
+      volume,
+      turnover
+    };
+  }).sort((a, b) => a.timestamp - b.timestamp);
+
+  // 初始化 KLineChart 实例
+  if (!state.klineInstance) {
+    try {
+      state.klineInstance = window.klinecharts.init(el.chartKlineEl, {
+        styles: {
+          grid: {
+            show: true,
+            horizontal: { color: 'rgba(226, 232, 240, 0.7)' },
+            vertical: { color: 'rgba(226, 232, 240, 0.7)' }
+          },
+          candle: {
+            type: 'candle_solid',
+            bar: {
+              upColor: '#ef4444',
+              downColor: '#10b981',
+              noChangeColor: '#64748b',
+              upBorderColor: '#ef4444',
+              downBorderColor: '#10b981',
+              noChangeBorderColor: '#64748b',
+              upWickColor: '#ef4444',
+              downWickColor: '#10b981',
+              noChangeWickColor: '#64748b'
+            },
+            tooltip: {
+              showRule: 'always',
+              showType: 'standard',
+              labels: ['时间: ', '开: ', '收: ', '高: ', '低: ', '量: ']
+            }
+          },
+          indicator: {
+            tooltip: {
+              showRule: 'always'
+            }
+          }
+        }
+      });
+
+      state.klineInstance.createIndicator('VOL', false, { id: 'pane_vol', height: 75 });
+      state.klineInstance.createIndicator('MACD', false, { id: 'pane_macd', height: 75 });
+    } catch (e) {
+      console.warn('初始化 KLineChart 异常，安全降级至 ECharts:', e);
+      state.chartEngine = 'echarts';
+      renderActiveChart();
+      return;
+    }
+  }
+
+  try {
+    state.klineInstance.applyNewData(klineList);
+    setTimeout(() => {
+      if (state.klineInstance) state.klineInstance.resize();
+    }, 60);
+  } catch (err) {
+    console.error('KLineChart applyNewData 异常:', err);
   }
 }
 

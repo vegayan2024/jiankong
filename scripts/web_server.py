@@ -606,6 +606,34 @@ app.add_middleware(
 # ==============================================================================
 # REST API 接口
 # ==============================================================================
+FEATURE_FLAGS_FILE = JIANKONG_DIR / "feature_flags.json"
+
+def get_feature_flags() -> Dict[str, Any]:
+    default_flags = {
+        "USE_KLINECHARTS": True,
+        "ENABLE_GRIDSTACK": False,
+        "ENABLE_SHADOW_CYQ": False,
+        "ENABLE_EVENT_BUS": False,
+        "ENABLE_LLM_INFERENCE": False,
+        "USE_PERSPECTIVE_WASM": False
+    }
+    if FEATURE_FLAGS_FILE.exists():
+        try:
+            with open(FEATURE_FLAGS_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                if isinstance(data, dict):
+                    default_flags.update(data)
+        except Exception as e:
+            logger.warning(f"读取 feature_flags.json 异常: {e}")
+    return default_flags
+
+
+@app.get("/api/features")
+async def get_features_endpoint():
+    """获取系统当前生效的特性标志位 (Feature Flags)"""
+    return {"status": "success", "data": get_feature_flags()}
+
+
 @app.get("/api/overview")
 async def get_overview(group: Optional[str] = None, market: Optional[str] = None,
                        asset_type: Optional[str] = None, search: Optional[str] = None,

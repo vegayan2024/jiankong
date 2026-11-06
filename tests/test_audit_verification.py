@@ -14,6 +14,7 @@ QUANT RADAR (jiankong) - 架构与金融逻辑审计全面自我验证套件 (v2
 import sys
 import os
 import time
+import json
 import sqlite3
 from datetime import datetime, date
 from pathlib import Path
@@ -180,9 +181,53 @@ def main():
     assert "B" in bis and "C" in bis and "D" in bis, "集合中应保留 B, C, D"
     print("[OK] BoundedIdSet 纯正 FIFO 测试成功: 重复访问已存在元素未改变队列时序，成功淘汰最早入队 ID！")
 
+    # 9. 验证 CHECK-03 严禁交叉合成估值
+    print("\n--- 9. 严禁交叉合成估值验证 (CHECK-03) ---")
+    shp_path = BASE_DIR / "scripts" / "stock_history_provider.py"
+    with open(shp_path, "r", encoding="utf-8") as f:
+        shp_content = f.read()
+    # 验证没有用前复权价格交叉相除未复权财务指标的代码痕迹
+    assert "calc_pe = round(close / eps" not in shp_content, "违背 CHECK-03: 严禁用前复权收盘价除以 EPS 拼凑 PE"
+    assert "calc_pb = round(close / bps" not in shp_content, "违背 CHECK-03: 严禁用前复权收盘价除以 BPS 拼凑 PB"
+    print("[OK] CHECK-03 验证成功: 代码严格遵循估值仅采信官方日频序列原则，严禁交叉相除合成！")
+
+    # 10. 验证 CHECK-08 SQLite WAL 模式与并发配置
+    print("\n--- 10. SQLite WAL 模式与并发配置验证 (CHECK-08) ---")
+    conn = kline_cache._conn()
+    cur = conn.cursor()
+    cur.execute("PRAGMA journal_mode;")
+    j_mode = cur.fetchone()[0].lower()
+    cur.execute("PRAGMA synchronous;")
+    s_mode = cur.fetchone()[0]
+    assert j_mode == "wal", f"SQLite journal_mode 应为 wal，实际为 {j_mode}"
+    assert s_mode in [1, "1", "NORMAL", "normal"], f"SQLite synchronous 应为 NORMAL(1)，实际为 {s_mode}"
+    print(f"[OK] CHECK-08 验证成功: SQLite WAL 模式已就绪 (journal_mode={j_mode}, synchronous={s_mode})！")
+
+    # 11. 验证 CHECK-11 端口回收安全白名单
+    print("\n--- 11. 端口回收进程安全白名单验证 (CHECK-11) ---")
+    ws_path = BASE_DIR / "scripts" / "web_server.py"
+    with open(ws_path, "r", encoding="utf-8") as f:
+        ws_content = f.read()
+    assert "is_our_process = (\"python\" in p_name)" in ws_content, "违背 CHECK-11: 缺少 python 进程名白名单判断"
+    assert "web_server.py" in ws_content and "jiankong" in ws_content, "违背 CHECK-11: 缺少命令行白名单判定"
+    print("[OK] CHECK-11 验证成功: 端口回收严格限定于本项目进程，严禁误杀外部进程！")
+
+    # 12. 验证 Phase 0 基础设施：特性标志位 (Feature Flags)
+    print("\n--- 12. Phase 0 特性标志位体系验证 (Feature Flags) ---")
+    ff_path = BASE_DIR / "feature_flags.json"
+    assert ff_path.exists(), "未找到 feature_flags.json"
+    with open(ff_path, "r", encoding="utf-8") as f:
+        ff_data = json.load(f)
+    assert "USE_KLINECHARTS" in ff_data, "缺少 USE_KLINECHARTS 特性开关"
+    assert "ENABLE_GRIDSTACK" in ff_data, "缺少 ENABLE_GRIDSTACK 特性开关"
+    assert "ENABLE_SHADOW_CYQ" in ff_data, "缺少 ENABLE_SHADOW_CYQ 特性开关"
+    assert "ENABLE_EVENT_BUS" in ff_data, "缺少 ENABLE_EVENT_BUS 特性开关"
+    print(f"[OK] Feature Flags 验证成功: 载入 {len(ff_data)} 项特性开关 (USE_KLINECHARTS={ff_data.get('USE_KLINECHARTS')})！")
+
     print("\n==================================================")
-    print("  🎉 全部 8 项金融逻辑、跨市场时段与并发架构审计修复验证 100% 通过！")
+    print("  🎉 全部 12 项金融逻辑、跨市场时段、架构并发与 Phase 0 门禁验证 100% 通过！")
     print("==================================================")
 
 if __name__ == "__main__":
     main()
+

@@ -1,0 +1,8 @@
+{
+  "USE_KLINECHARTS": true,
+  "ENABLE_GRIDSTACK": false,
+  "ENABLE_SHADOW_CYQ": false,
+  "ENABLE_EVENT_BUS": false,
+  "ENABLE_LLM_INFERENCE": false,
+  "USE_PERSPECTIVE_WASM": false
+}
