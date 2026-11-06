@@ -4,11 +4,12 @@
   "channels": {
     "console": true,
     "desktop_toast": true,
+    "pushplus_token": "",
+    "wxpusher_app_token": "",
+    "wxpusher_uids": [],
     "feishu_webhook": "",
     "wecom_webhook": "",
     "dingtalk_webhook": "",
-    "bark_url": "",
-    "wxpusher_app_token": "",
-    "wxpusher_uids": []
+    "bark_url": ""
   }
 }

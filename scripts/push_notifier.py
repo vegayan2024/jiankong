@@ -3,16 +3,18 @@
 多通道统一消息推送适配器 (Push Notifier)
 ======================================
 支持通道：
-  1. 控制台富文本与日志记录 (默认)
-  2. Windows 原生桌面弹窗通知 (PowerShell Toast / 终端提示音)
-  3. 飞书自定义机器人 Webhook (支持富文本交互卡片)
-  4. 企业微信自定义机器人 Webhook (Markdown 格式)
-  5. 钉钉自定义机器人 Webhook
-  6. Bark (iOS 极简推送客户端)
-  7. WxPusher (微信公众平台模板消息推送)
+  1. 微信 PushPlus 直推 (第一顺位通道，公众号模板消息卡片)
+  2. 控制台富文本与日志记录 (默认)
+  3. Windows 原生桌面弹窗通知 (PowerShell Toast / 终端提示音)
+  4. 飞书自定义机器人 Webhook (支持富文本交互卡片)
+  5. 企业微信自定义机器人 Webhook (Markdown 格式)
+  6. 钉钉自定义机器人 Webhook
+  7. Bark (iOS 极简推送客户端)
+  8. WxPusher (微信公众平台模板消息推送)
 
-防骚扰机制：
-  内置智能防抖 (Debounce) 与时间戳滑动窗口，同一标的同一事件类型在设定窗口期内（默认10分钟）自动合并去重。
+防骚扰与降级纪律：
+  - 第一顺位 PushPlus 优先推送，若未成功触发明确告警拦截并中止静默降级，确保透明可控；
+  - 内置智能防抖 (Debounce) 与时间戳滑动窗口，同一标的同一事件类型在设定窗口期内（默认10分钟）自动合并去重。
 """
 
 import os
@@ -24,7 +26,7 @@ import urllib.request
 import subprocess
 from pathlib import Path
 from datetime import datetime
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Tuple
 
 try:
     sys.stdout.reconfigure(encoding='utf-8')
@@ -44,28 +46,44 @@ class PushNotifier:
         self.debounce_seconds = self.config.get("debounce_seconds", 600)  # 默认10分钟防抖
 
     def _load_config(self) -> Dict[str, Any]:
-        """加载推送配置"""
+        """加载推送配置 (优先加载本地 .env 环境变量)"""
+        env_file = Path(__file__).resolve().parent.parent / ".env"
+        if env_file.exists():
+            try:
+                for line in env_file.read_text(encoding="utf-8").splitlines():
+                    line = line.strip()
+                    if line and not line.startswith("#") and "=" in line:
+                        k, v = line.split("=", 1)
+                        k, v = k.strip(), v.strip().strip("'\"")
+                        if k and k not in os.environ:
+                            os.environ[k] = v
+            except Exception:
+                pass
+
         default_config = {
             "enabled": True,
             "debounce_seconds": 600,
             "channels": {
                 "console": True,
                 "desktop_toast": True,
-                "feishu_webhook": os.environ.get("FEISHU_WEBHOOK", ""),
-                "wecom_webhook": os.environ.get("WECOM_WEBHOOK", ""),
-                "dingtalk_webhook": os.environ.get("DINGTALK_WEBHOOK", ""),
-                "bark_url": os.environ.get("BARK_URL", ""),
-                "wxpusher_app_token": os.environ.get("WXPUSHER_APP_TOKEN", ""),
-                "wxpusher_uids": [x for x in os.environ.get("WXPUSHER_UIDS", "").split(",") if x]
+                "pushplus_token": os.environ.get("PUSHPLUS_TOKEN", "").strip(),
+                "wxpusher_app_token": os.environ.get("WXPUSHER_APP_TOKEN", "").strip(),
+                "wxpusher_uids": [x for x in os.environ.get("WXPUSHER_UIDS", "").split(",") if x.strip()],
+                "feishu_webhook": os.environ.get("FEISHU_WEBHOOK", "").strip(),
+                "wecom_webhook": os.environ.get("WECOM_WEBHOOK", "").strip(),
+                "dingtalk_webhook": os.environ.get("DINGTALK_WEBHOOK", "").strip(),
+                "bark_url": os.environ.get("BARK_URL", "").strip()
             }
         }
         if self.config_path.exists():
             try:
                 user_cfg = json.loads(self.config_path.read_text(encoding="utf-8"))
                 default_config.update(user_cfg)
-                # 嵌套 channels 合并
+                # 嵌套 channels 增量合并：若 JSON 中为空但已从 .env 读取到有效值，则保留 .env 中的有效值
                 if "channels" in user_cfg:
-                    default_config["channels"].update(user_cfg["channels"])
+                    for ck, cv in user_cfg["channels"].items():
+                        if cv or not default_config["channels"].get(ck):
+                            default_config["channels"][ck] = cv
             except Exception as e:
                 logger.warning(f"读取推送配置 {self.config_path} 异常: {e}")
         else:
@@ -126,26 +144,43 @@ class PushNotifier:
                 print(f"原文链接: {url}")
             print(f"========================================================\n")
 
-        # 3. Windows 原生桌面 Toast 弹窗
+        # 3. 第一顺位推送：微信 PushPlus
+        pushplus_token = channels.get("pushplus_token")
+        if pushplus_token:
+            pushplus_ok, pp_msg = self._send_pushplus(pushplus_token, title, content, url)
+            if not pushplus_ok:
+                logger.error(f"[PushNotifier] ⚠️ 第一顺位 PushPlus 推送失败: {pp_msg}")
+                if channels.get("desktop_toast", True) and sys.platform == "win32":
+                    self._send_windows_toast("【推送失败】PushPlus 第一推送未成功", f"{title}\n原因: {pp_msg}")
+                return False
+            else:
+                logger.info(f"[PushNotifier] ✅ 第一顺位 PushPlus 推送成功: {title}")
+
+        # 4. Windows 原生桌面 Toast 弹窗
         if channels.get("desktop_toast", True) and sys.platform == "win32":
             self._send_windows_toast(title, content)
 
-        # 4. 飞书 Webhook 机器人
+        # 5. 飞书 Webhook 机器人
         feishu_url = channels.get("feishu_webhook")
         if feishu_url:
             self._send_feishu(feishu_url, formatted_title, content, url)
 
-        # 5. 企业微信 Webhook 机器人
+        # 6. 企业微信 Webhook 机器人
         wecom_url = channels.get("wecom_webhook")
         if wecom_url:
             self._send_wecom(wecom_url, formatted_title, content, url)
 
-        # 6. Bark (iOS 手机端推送)
+        # 7. 钉钉 Webhook 机器人
+        ding_url = channels.get("dingtalk_webhook")
+        if ding_url:
+            self._send_dingtalk(ding_url, formatted_title, content, url)
+
+        # 8. Bark (iOS 手机端推送)
         bark_url = channels.get("bark_url")
         if bark_url:
             self._send_bark(bark_url, title, content, url)
 
-        # 7. WxPusher (微信服务号消息)
+        # 9. WxPusher (微信服务号消息)
         wx_token = channels.get("wxpusher_app_token")
         wx_uids = channels.get("wxpusher_uids", [])
         if wx_token and wx_uids:
@@ -259,16 +294,73 @@ class PushNotifier:
             logger.warning(f"WxPusher 推送失败: {e}")
 
 
+    def _send_pushplus(self, token: str, title: str, content: str, url: Optional[str] = None) -> Tuple[bool, str]:
+        """向微信 PushPlus (第一顺位通道) 发送消息"""
+        try:
+            api_url = "https://www.pushplus.plus/send"
+            full_content = content
+            if url:
+                full_content += f"\n\n[点击查看官方信披/快讯原文]({url})"
+            payload = {
+                "token": token,
+                "title": title,
+                "content": full_content,
+                "template": "markdown"
+            }
+            req = urllib.request.Request(
+                api_url,
+                data=json.dumps(payload).encode("utf-8"),
+                headers={"Content-Type": "application/json", "User-Agent": "Mozilla/5.0"}
+            )
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                if data.get("code") == 200:
+                    msg = f"PushPlus 微信推送成功 (msgId: {data.get('data')})"
+                    logger.info(msg)
+                    return True, msg
+                else:
+                    err_msg = f"PushPlus 微信推送被拒: code={data.get('code')}, msg={data.get('msg')}"
+                    logger.warning(err_msg)
+                    return False, err_msg
+        except Exception as e:
+            err_msg = f"PushPlus 推送异常: {e}"
+            logger.warning(err_msg)
+            return False, err_msg
+
+    def _send_dingtalk(self, webhook_url: str, title: str, content: str, url: Optional[str] = None):
+        """向钉钉机器人发送 Markdown 消息"""
+        try:
+            md_text = f"### {title}\n{content}"
+            if url:
+                md_text += f"\n\n[点击查看原文]({url})"
+            payload = {
+                "msgtype": "markdown",
+                "markdown": {
+                    "title": title[:30],
+                    "text": md_text
+                }
+            }
+            req = urllib.request.Request(webhook_url,
+                                         data=json.dumps(payload).encode("utf-8"),
+                                         headers={"Content-Type": "application/json"})
+            urllib.request.urlopen(req, timeout=5)
+        except Exception as e:
+            logger.warning(f"钉钉推送失败: {e}")
+
+
 # 全局单例
 push_notifier = PushNotifier()
 
 if __name__ == "__main__":
-    print("=== 测试统一消息推送适配器 ===")
-    push_notifier.send(
-        title="齐翔腾达 (002408.SZ) 盘中急拉异动",
-        content="• 当前最新价: 5.25 元 (日涨跌幅: +4.12%)\n• 异动触发: 3分钟内急拉超过 2.3%，伴随成交量急剧放大。",
+    print("=== 测试统一消息推送适配器 (PushPlus 第一顺位) ===")
+    ok = push_notifier.send(
+        title="齐翔腾达 (002408.SZ) 盘中急拉异动测试",
+        content="• 当前最新价: 5.25 元 (日涨跌幅: +4.12%)\n• 异动触发: 3分钟内急拉超过 2.3%，伴随成交量急剧放大。\n• 推送通道: 微信 PushPlus (第一顺位直推)",
         level="ALERT",
         stock_code="002408.SZ",
-        event_type="PRICE_SURGE"
+        event_type="TEST_PUSHPLUS"
     )
-    print("✅ 测试推送已触发。")
+    if ok:
+        print("✅ 第一顺位 PushPlus 测试推送已成功发送！")
+    else:
+        print("❌ 第一顺位 PushPlus 推送失败！")
