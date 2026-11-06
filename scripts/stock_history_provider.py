@@ -80,17 +80,18 @@ def em_get(url: str, params=None, headers=None, timeout: float = 6.0) -> request
     """东财专用限流 GET：令牌桶预订模式（锁内领号计算时间戳，锁外休眠与网络IO）。
     锁持有时间为微秒级（<0.01ms），杜绝多线程并发时的互斥锁排队超时；
     同时严格保证发往东财的请求物理间隔 >= EM_MIN_INTERVAL。
+    排队超过 15 秒在锁内直接快速失败且不推进时间戳，防止 Worker 线程堆积与废弃号累积。
     """
     with _em_lock:
         now = time.monotonic()
         target_time = max(now, _next_allowed_time[0])
         wait_time = target_time - now
+        if wait_time > 15.0:
+            logger.warning(f"东财接口限流排队过长 ({wait_time:.1f}s > 15.0s)，锁内拒绝领号以保护线程池: {url}")
+            raise TimeoutError(f"东财接口排队等待超限 ({wait_time:.1f}s > 15.0s)")
         interval = EM_MIN_INTERVAL + random.uniform(0.02, 0.15)
         _next_allowed_time[0] = target_time + interval
 
-    if wait_time > 15.0:
-        logger.warning(f"东财接口限流排队过长 ({wait_time:.1f}s > 15.0s)，快速失败避免线程堆积: {url}")
-        raise TimeoutError("东财接口限流队列过长")
     if wait_time > 0:
         time.sleep(wait_time)  # 在锁外休眠！绝不阻塞其他线程计算时间戳
     return EM_SESSION.get(url, params=params, headers=headers, timeout=timeout)
@@ -527,18 +528,19 @@ def get_kline_cached(info: Dict[str, str], freq: str, latest_prev_close: Optiona
     """
     带 SQLite 本地缓存的 K线获取：
     1. 校验最新除权除息漂移：严格按同一交易日对齐比对缓存收盘价与实时 prev_close。
-       若偏离 > 0.1% (0.001)，自动清空该标的旧缓存重新全量拉取前复权时序；
-       若缓存最新日期早于上一交易日，属于正常增量待拉取而非除权，绝不跨日误杀。
-    2. 本地缓存新鲜 (最新日期距今 <= 7 天) → 直接读缓存
-    3. 否则走降级链全量拉取 → INSERT OR REPLACE 写入缓存 → 读全量返回
-    4. 拉取全失败 → 读旧缓存兜底 (可能为空，绝不伪造)
+       若偏离 > 0.1% (0.001)，自动联动清空该标的全部周期(日/周/月)旧缓存并全量重拉；
+    2. 分离新鲜度与除权检测：
+       若缓存最新日期落后于上一交易日 (maxd < target_date)，严禁直接返回旧缓存，必须拉取最新数据；
+       拉取后比对新旧序列重叠交易日的收盘价，若重叠点收盘价发生 >0.1% 漂移，确认除权，全量替换并联动清空其他周期；
+    3. 仅当缓存最新日期已经对齐目标交易日 (maxd >= target_date) 且在 7 天新鲜期内，才允许直接返回本地缓存；
+    4. 拉取全失败 → 读旧缓存兜底 (可能为空，绝不伪造)。
     """
     cache_key = info["full_code"]
     cached = kline_cache.read(cache_key, freq)
+    target_date = prev_trade_date or get_prev_trading_date(market=info.get("market", "SH"))
 
-    # 校验最新除权除息导致的前复权漂移 (按同一交易日对齐校验，阈值收紧至 0.001)
-    if cached and latest_prev_close and latest_prev_close > 0:
-        target_date = prev_trade_date or get_prev_trading_date(market=info.get("market", "SH"))
+    # 1. 缓存同日收盘价对齐比对 (优先用于日 K 线精确捕捉盘口除权)
+    if cached and latest_prev_close and latest_prev_close > 0 and target_date:
         matched_row = None
         for r in reversed(cached):
             if r.get("date") == target_date:
@@ -547,27 +549,48 @@ def get_kline_cached(info: Dict[str, str], freq: str, latest_prev_close: Optiona
         if matched_row and matched_row.get("close"):
             cached_close = float(matched_row["close"])
             drift = abs(cached_close - latest_prev_close) / latest_prev_close
-            # 漂移阈值收紧至 0.001 (0.1%)，同日对比下精准捕获现金分红与送转除权，绝不跨日误杀
             if drift > 0.001:
                 logger.warning(
                     f"{cache_key} ({freq}) 对齐交易日 {target_date} 检测到除权除息价格漂移 "
                     f"(缓存Close: {cached_close}, 实时PrevClose: {latest_prev_close}, 偏离率: {drift*100:.2f}%)，"
-                    f"清空旧缓存并触发全量重拉"
+                    f"联动清空该标的全部周期旧缓存并触发全量重拉"
                 )
-                kline_cache.invalidate(cache_key, freq)
+                # 联动失效：清空该 symbol 下所有周期 (包含日 K、月 K 与周 K)
+                kline_cache.invalidate(cache_key, freq=None)
                 cached = []
 
+    # 2. 7 天新鲜度门禁：严格要求 maxd >= target_date，若落后于上一交易日绝不误放行
     maxd = kline_cache.max_date(cache_key, freq)
     if maxd and cached:
-        try:
-            last = datetime.strptime(maxd, "%Y-%m-%d").date()
-            if (date.today() - last).days <= KLINE_CACHE_FRESH_DAYS:
-                return cached
-        except Exception:
-            pass
+        # 仅当缓存已包含最近交易日数据时才允许直接走新鲜度缓存返回
+        if target_date and maxd >= target_date:
+            try:
+                last = datetime.strptime(maxd, "%Y-%m-%d").date()
+                if (date.today() - last).days <= KLINE_CACHE_FRESH_DAYS:
+                    return cached
+            except Exception:
+                pass
 
+    # 3. 缓存落后或失效，进入真实通道拉取
     rows, source = fetch_kline_chain(info, freq)
     if rows:
+        # 除权首日 (T日) 重叠点校验：比对新拉取数据与旧缓存中同一重叠历史交易日的收盘价
+        if cached and freq == "day":
+            old_last = cached[-1]
+            old_last_date = old_last.get("date")
+            old_last_close = float(old_last.get("close", 0.0))
+            new_overlap = next((r for r in rows if r.get("date") == old_last_date), None)
+            if new_overlap and new_overlap.get("close") and old_last_close > 0:
+                new_close = float(new_overlap["close"])
+                overlap_drift = abs(new_close - old_last_close) / old_last_close
+                if overlap_drift > 0.001:
+                    logger.warning(
+                        f"{cache_key} 在重叠交易日 {old_last_date} 发现前复权价格重算偏离 "
+                        f"(旧Close: {old_last_close}, 新Close: {new_close}, 偏离率: {overlap_drift*100:.2f}%)，"
+                        f"确认发生除权除息，联动清空全部周期缓存"
+                    )
+                    kline_cache.invalidate(cache_key, freq=None)
+
         kline_cache.upsert(cache_key, freq, rows, source, replace=True)
         new_cached = kline_cache.read(cache_key, freq)
         if new_cached:
@@ -847,22 +870,21 @@ def get_stock_history_and_valuation(code: str, latest_prev_close: Optional[float
         except Exception:
             pass
 
-    # 3. 在线并发拉取行情与指标 (价格时序走 SQLite 缓存 + 三级降级链)
+    # 3. 先通过日 K 线执行严密的同日对齐与除权漂移校验 (主裁判)
+    # 若发生除权除息，日 K 流程会联动清空该 symbol 下所有周期 (包括月 K) 的旧缓存
+    daily_klines = get_kline_cached(info, "day", latest_prev_close, prev_trade_date) or []
+
+    # 4. 在线并发拉取月K线与财务指标 (月K若已被日K清空则自动重拉最新全复权)
     is_equity = (atype == "stock")
     full_code = info["full_code"]
-    with ThreadPoolExecutor(max_workers=4) as executor:
+    with ThreadPoolExecutor(max_workers=3) as executor:
         f_month = executor.submit(get_kline_cached, info, "month", latest_prev_close, prev_trade_date)
-        f_day = executor.submit(get_kline_cached, info, "day", latest_prev_close, prev_trade_date)
         f_val = executor.submit(fetch_valuation_history, sym, full_code) if is_equity and market != "HK" else None
         f_roe = executor.submit(fetch_roe_history, sym, full_code) if is_equity and market != "HK" else None
 
         monthly_klines = f_month.result() or []
-        daily_klines = f_day.result() or []
         val_list = f_val.result() if f_val else []
         roe_list = f_roe.result() if f_roe else []
-
-    # 严禁将前复权 (QFQ) 价格与历史财报未复权 (Unadjusted) 每股指标直接相除合成历史 PB/PE，
-    # 避免股票经历高送转除权后历史估值被系统性严重压低。直接依托 TuShare/东财官方真实估值时序。
 
     # 4. 构建全景统计摘要
     all_k = monthly_klines if monthly_klines else daily_klines

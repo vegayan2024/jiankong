@@ -96,7 +96,7 @@ WEB_DIR = JIANKONG_DIR / "web"
 
 
 class BoundedIdSet:
-    """基于 OrderedDict 实现的 FIFO 有序去重集合，容量超限时自动淘汰最老 ID，保证 O(1) 查找且避免截断闪烁。"""
+    """基于 OrderedDict 实现的严格 FIFO 有序去重集合，容量超限时自动淘汰最老 ID，保证 O(1) 查找且避免截断闪烁。"""
     def __init__(self, maxlen: int = 4000):
         self.maxlen = maxlen
         self._data: OrderedDict[str, None] = OrderedDict()
@@ -105,11 +105,10 @@ class BoundedIdSet:
         if not item:
             return
         if item in self._data:
-            self._data.move_to_end(item)
-            return
+            return  # 严格 FIFO：已存在则保持原入队时序不变，绝不 move_to_end (避免退化为 LRU)
         self._data[item] = None
         if len(self._data) > self.maxlen:
-            self._data.popitem(last=False)  # 严格按 FIFO 淘汰最老 ID，杜绝批量清空导致旧闻复发
+            self._data.popitem(last=False)  # 严格按 FIFO 淘汰最早进入的 ID，杜绝批量清空导致旧闻复发
 
     def __contains__(self, item: str) -> bool:
         return item in self._data
@@ -266,7 +265,20 @@ def _fetch_single_chunk(chunk_items: List[Dict[str, Any]], now_ts: float, now_st
                         "price": price, "pct_change": pct_change, "volume": volume,
                         "amount": amount, "high": high_p, "low": low_p, "prev_close": prev_close
                     }
-                    market_val = cfg.get("market", "SH").upper()
+                    code_upper = str(code).upper()
+                    market_val = str(cfg.get("market", "")).upper()
+                    if not market_val:
+                        if code_upper.endswith(".HK") or (len(code_upper) == 5 and code_upper.isdigit()):
+                            market_val = "HK"
+                        elif code_upper.endswith(".SH"):
+                            market_val = "SH"
+                        elif code_upper.endswith(".SZ"):
+                            market_val = "SZ"
+                        elif code_upper.endswith(".BJ"):
+                            market_val = "BJ"
+                        else:
+                            market_val = "SH"
+
                     cur_sess = get_market_session()
                     is_stock_trading = cur_sess.get("hk", {}).get("is_trading", False) if market_val == "HK" else cur_sess.get("cn", {}).get("is_trading", False)
                     alert_core = alert_engine.evaluate_and_gate(cfg, metrics, now_ts=now_ts, is_trading=is_stock_trading)

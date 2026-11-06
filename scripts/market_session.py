@@ -108,6 +108,23 @@ HK_KNOWN_HOLIDAYS = {
     "2026-01-01", "2026-02-17", "2026-02-18", "2026-02-19", "2026-04-03",
     "2026-04-06", "2026-05-01", "2026-05-25", "2026-06-19", "2026-07-01",
     "2026-09-28", "2026-10-01", "2026-10-19", "2026-12-25", "2026-12-28",
+    # 2027
+    "2027-01-01", "2027-02-08", "2027-02-09", "2027-03-26", "2027-03-29",
+    "2027-04-05", "2027-05-03", "2027-05-13", "2027-06-09", "2027-07-01",
+    "2027-10-01", "2027-10-11", "2027-12-27", "2027-12-28",
+}
+
+# 港交所法定半日市日期表 (Half-Day Trading: 仅上午交易，12:00-12:10 CAS，下午休市)
+# 涵盖平安夜 (12-24)、大除夕 (12-31) 以及农历除夕前一日 (若为交易日)
+HK_HALF_DAYS = {
+    # 2024
+    "2024-02-09", "2024-12-24", "2024-12-31",
+    # 2025
+    "2025-01-28", "2025-12-24", "2025-12-31",
+    # 2026
+    "2026-02-16", "2026-12-24", "2026-12-31",
+    # 2027
+    "2027-02-05", "2027-12-24", "2027-12-31",
 }
 
 
@@ -224,6 +241,30 @@ def get_hk_session(now: Optional[datetime] = None) -> Dict[str, Any]:
     afternoon_open = dtime(13, 0)
     afternoon_close = dtime(16, 0)
     cas_close = dtime(16, 10)
+
+    # 港股半日市 (Half-Day Trading: 平安夜、大除夕及农历除夕前一日) 特殊状态机判定
+    # 仅上午交易至 12:00，12:00-12:10 CAS，12:10 后下午完全闭市休市
+    is_half_day = d.strftime("%Y-%m-%d") in HK_HALF_DAYS
+    if is_half_day:
+        cas_close_half = dtime(12, 10)
+        if t < pos_open:
+            return {"is_trading_day": True, "is_trading": False, "session": "pre_open",
+                    "session_label": "半日市尚未开市", "note": "港交所半日市竞价(POS) 9:00 开始"}
+        elif t < pos_matching:
+            return {"is_trading_day": True, "is_trading": False, "session": "pos_auction",
+                    "session_label": "半日市开市前竞价", "note": "9:00-9:20 半日市申报竞价"}
+        elif t < morning_open:
+            return {"is_trading_day": True, "is_trading": False, "session": "pos_blocking",
+                    "session_label": "半日市撮合暂停", "note": "9:20-9:30 港股半日市阻断期"}
+        elif t < morning_close:
+            return {"is_trading_day": True, "is_trading": True, "session": "morning",
+                    "session_label": "半日市交易中", "note": "港股半日市连续竞价 9:30-12:00 (下午休市)"}
+        elif t < cas_close_half:
+            return {"is_trading_day": True, "is_trading": False, "session": "closing_auction",
+                    "session_label": "半日市收市竞价", "note": "港股半日市收市竞价 12:00-12:10 (CAS)"}
+        else:
+            return {"is_trading_day": True, "is_trading": False, "session": "closed",
+                    "session_label": "半日市已收市", "note": "港股半日市 12:10 起全天闭市 (下午休市)"}
 
     if t < pos_open:
         return {"is_trading_day": True, "is_trading": False, "session": "pre_open",

@@ -72,13 +72,13 @@ flowchart TB
 
 | 模块源码路径 | 核心类 / 核心函数 | 架构职责与关键技术约束 |
 | :--- | :--- | :--- |
-| [web_server.py](file:///c:/ai/antigravity/jiankong/scripts/web_server.py) | `FastAPI app`<br>`fetch_quotes()`<br>`broadcast_tick()` | HTTP API 网关、WebSocket 真长连接推送、切片拉取、进程白名单安全回收 |
-| [stock_history_provider.py](file:///c:/ai/antigravity/jiankong/scripts/stock_history_provider.py) | `get_kline_cached()`<br>`get_stock_history_and_valuation()`<br>`em_get()`<br>`KlineCache` | 历史 K 线与估值时序管理、**除权漂移同日对齐校验**、**令牌桶排队预订**、SQLite WAL 存储 |
-| [market_session.py](file:///c:/ai/antigravity/jiankong/scripts/market_session.py) | `get_market_session()`<br>`get_hk_session()`<br>`is_trading_day()`<br>`get_prev_trading_date()` | **A/H 跨市场双时钟状态机**、港股细分时段（POS申报/POS阻断/CAS竞价）、港股独立法定休市日历 |
-| [macro_compass.py](file:///c:/ai/antigravity/jiankong/scripts/macro_compass.py) | `calculate_macro_compass()`<br>`get_macro_compass_data()` | **大小盘风格罗盘（国证2000 vs 沪深300）**、股债利差、成长/价值轮动、AH溢价指数直连追踪 |
-| [alert_engine.py](file:///c:/ai/antigravity/jiankong/scripts/alert_engine.py) | `evaluate_and_gate()`<br>`evaluate_stock()`<br>`load_rules()` | **四级门限预警引擎**（时段门禁、零值异常过滤、多条件算子、冷却与防轰炸拦截） |
+| [web_server.py](file:///c:/ai/antigravity/jiankong/scripts/web_server.py) | `FastAPI app`<br>`fetch_quotes()`<br>`BoundedIdSet` | HTTP API 网关、WebSocket 真长连接推送、切片拉取、**严格 FIFO 去重防冷门挤压**、**A/H 标的单票预警状态机动态分派**、进程白名单安全回收 |
+| [stock_history_provider.py](file:///c:/ai/antigravity/jiankong/scripts/stock_history_provider.py) | `get_kline_cached()`<br>`get_stock_history_and_valuation()`<br>`em_get()`<br>`KlineCache` | 历史 K 线与估值时序管理、**除权漂移同日对齐校验**、**除权首日跨周期联动失效 (日K主裁判/月K周K连带清空)**、**令牌桶锁内超时快速失败**、SQLite WAL 存储 |
+| [market_session.py](file:///c:/ai/antigravity/jiankong/scripts/market_session.py) | `get_market_session()`<br>`get_hk_session()`<br>`is_trading_day()`<br>`HK_HALF_DAYS` | **A/H 跨市场双时钟状态机**、港股细分时段（POS申报/POS阻断/CAS竞价）、**港股法定半日市（除夕/平安夜12:10闭市）**、港股独立法定休市日历 |
+| [macro_compass.py](file:///c:/ai/antigravity/jiankong/scripts/macro_compass.py) | `MacroCompassEngine`<br>`calculate_macro_compass()` | **大小盘风格罗盘（国证2000 vs 沪深300）**、股债利差、成长/价值轮动、AH溢价指数直连追踪 |
+| [alert_engine.py](file:///c:/ai/antigravity/jiankong/scripts/alert_engine.py) | `evaluate_and_gate()`<br>`evaluate_stock()`<br>`load_rules()` | **四级门限预警引擎**（**A/H 混排单票状态机动态隔离**、零值异常过滤、多条件算子、冷却与防轰炸拦截） |
 | [watchlist_manager.py](file:///c:/ai/antigravity/jiankong/scripts/watchlist_manager.py) | `WatchlistManager`<br>`normalize_code()` | 监控池 CRUD 管理、腾讯行情代码规范化映射（含 `399303.SZ` 国证2000 映射为 `sz399303`） |
-| [tests/test_audit_verification.py](file:///c:/ai/antigravity/jiankong/tests/test_audit_verification.py) | `run_all_tests()` | **8 项深度自动化审计回归测试套件**，覆盖金融口径、状态机、令牌桶与内存容量 |
+| [tests/test_audit_verification.py](file:///c:/ai/antigravity/jiankong/tests/test_audit_verification.py) | `run_all_tests()` | **8 项深度自动化审计回归测试套件**，覆盖金融口径、跨周期联动失效、港股半日市、单票时段隔离、令牌桶超时与严格 FIFO |
 
 ---
 
@@ -103,19 +103,26 @@ flowchart TB
 
 ## 三、 核心金融逻辑与数据口径实现说明 (Financial Logic)
 
-### 3.1 前复权价格时序与除权除息（Ex-Dividend）漂移同日对齐算法
+### 3.1 前复权价格时序与除权除息（Ex-Dividend）漂移同日对齐与跨周期联动失效算法
 - **原理痛点与漏洞分析**：
-  1. 前复权（QFQ）价格以标的最新除权除息日为基准向历史全量倒推重算。在每年 5-7 月 A 股分红送转密集期，标的一旦发生分红，其上市以来所有历史日/月 K 线价格整体向下平移。
+  1. **前复权（QFQ）向后平移机制**：前复权价格以标的最新除权除息日为基准向历史全量倒推重算。在每年 5-7 月 A 股分红送转密集期，标的一旦发生分红，其上市以来所有历史日/月 K 线价格整体向下平移。
   2. **严禁隔日直接比对**：若直接拿本地缓存尾部记录与盘口当期 `PrevClose` 比对，当本地缓存几天未更新（如跨周末或停牌）时，缓存最后一条是多日前的价格，而当日 `PrevClose` 是昨日价格，两者差额为股价正常的隔日涨跌幅，会造成严重的**误判全量刷新**。
-  3. **门限过宽漏检**：若门限设为 5% (`0.05`)，A 股绝大多数现金分红（股息率普遍在 1%~4%）将被漏检，导致除权日前后拼接出人为“跳空假暴跌”。
+  3. **月 K 线（freq='M'）与日频昨收对齐盲区**：月 K 线记录的 date 通常是月末最后一个交易日（如 2026-10-31），其 close 是月末收盘价。在月中任意一天（例如 11 月 15 日），拿 11 月 14 日的 `latest_prev_trade_date` 去月 K 缓存匹配 `date == '2026-11-14'`，由于月 K 没有当期记录，`target_date` 永远无法命中，导致月 K 线除权漂移检测形同虚设！
+  4. **除权首日（T日）7 天新鲜度保护误放行风险**：假设某股票在周三（T日）除权，周三盘中打开抽屉。如果本地缓存最后日期是周一（$T_{-2}$），小于周三昨收对应的周二（$T_{-1}$）。若仅凭“7天新鲜度”直接放行，或者误判为“仅增量落后无需校验”，就会把除权前的未更新旧 K 线直接展示给用户。
 - **技术实现细节**：
-  1. [stock_history_provider.py](file:///c:/ai/antigravity/jiankong/scripts/stock_history_provider.py) 中的 `get_kline_cached()` 实现**同交易日严格对齐的比对机制**：
-     - 输入参数明确传入盘口昨收及对应的交易日期：`latest_prev_close`, `latest_prev_trade_date`。
-     - 若缓存记录的最新日期 `cached_last_date < latest_prev_trade_date`，表明仅是正常的增量落后，绝不触发除权失效，执行增量更新。
+  1. **同日对齐与 0.1% 严格漂移检测**：
+     - 在 [stock_history_provider.py](file:///c:/ai/antigravity/jiankong/scripts/stock_history_provider.py) 的 `get_kline_cached()` 中，输入参数明确传入盘口昨收及对应的交易日期：`latest_prev_close`, `latest_prev_trade_date`。
      - 若在缓存中成功查找到 `date == latest_prev_trade_date` 的同日记录，计算同日偏离比率：
        $$\text{Drift Ratio} = \frac{|\text{Cached Close}_{\text{target\_date}} - \text{Realtime PrevClose}|}{\text{Realtime PrevClose}}$$
      - 将漂移门限精确收紧至 **0.1% (`0.001`)**。只要同日收盘价与最新盘口昨收偏差超过 0.1%，即判定标的发生了除权除息。
-  2. 判定漂移后，原子调用 `kline_cache.invalidate(symbol, freq)` 清空该标的全部历史记录，强制通过降级链重新抓取全量前复权序列覆盖落盘。
+  2. **跨周期联动失效（日 K 主裁判，月 K/周 K 同步全量清空）**：
+     - 单独对月 K 线执行同日漂移检测不可行（月中无同日记录）。架构设计确立**日 K 线（freq='D'）作为除权检测的主裁判**。
+     - 当日 K 线检测到除权漂移时，原子调用 `kline_cache.invalidate(symbol, freq=None)`，连带将该标的在 SQLite 缓存中的全部周期（日 K、周 K、月 K）一次性彻底清除。
+     - 在 `get_stock_history_and_valuation()` 中，日 K 线被安排作为第一步同步执行完成，然后再并发执行月 K 线及财务指标拉取。若日 K 触发了跨周期清除，随后的月 K 拉取就会无条件从官方源重新拉取最新除权后的前复权序列。
+  3. **分离新鲜度与除权检测（严格前置门禁）**：
+     - 7 天新鲜度缓存直接放行的前置条件严格限定为：`target_date and maxd >= target_date`。只有当缓存最新日期已覆盖最新交易日时，才允许直接走新鲜度通道；若 `maxd < target_date`（如除权首日缓存落后），强制穿透到外部通道拉取最新增量/全量数据。
+  4. **新旧重叠点收盘价除权比对**：
+     - 在拉取到新数据后，提取新数据与旧缓存最后一个共同重叠日期的收盘价。若重叠点收盘价偏差超过 0.1%（`overlap_drift > 0.001`），再次确认标的发生除权，强制执行全量替换而非增量拼接，彻底杜绝除权前后价格断层。
 
 ### 3.2 估值分位数正样本清洗与禁用前复权合成估值
 - **严禁交叉合成历史估值**：
@@ -171,6 +178,9 @@ flowchart TB
 ```
 
 - **全天候调度保护**：在 11:30-12:00 与 15:00-16:00 期间，A 股虽处于休市或闭市状态，但系统后台检测到港股仍处于 `is_trading == True` 时，继续保持 3 秒最高频轮询与预警全开，港股标的独享尾盘异动检测。
+- **港股法定半日市（Half-Day Trading）时钟边界**：
+  - **金融规则**：港交所每年规定 3 个法定半日市：平安夜（12月24日）、大除夕（12月31日）以及农历除夕前一日（若为工作日）。在半日市当天，港股仅在上午 09:30-12:00 进行连续竞价，12:00-12:10 进入收市竞价（CAS），**12:10 以后全天闭市，下午绝无交易**。
+  - **技术实现**：在 [market_session.py](file:///c:/ai/antigravity/jiankong/scripts/market_session.py) 中内嵌 `HK_HALF_DAYS`（覆盖 2024-2027 年平安夜与大除夕等法定半日市）。当日期命中 `HK_HALF_DAYS` 时，`get_hk_session()` 在 12:00-12:10 派发 `closing_auction`，12:10 以后直接切换为 `closed` (`is_trading=False`)，彻底杜绝下午 13:00-16:00 误判为交易中引起的假异动与状态胶囊失真。
 
 ---
 
@@ -189,6 +199,7 @@ flowchart TB
 
       Thread->>Lock: 进入锁 (持有时间 < 0.01ms)
       Lock->>State: 计算 start_time = max(now, _next_allowed_time)
+      Note over Lock,State: 锁内排队超时门禁: wait_time > 15s 立即拒绝，绝不推进时间戳
       Lock->>State: 递增 _next_allowed_time = start_time + interval + jitter
       Lock-->>Thread: 领号完成，释放锁
       Note over Thread: 离开临界区，在锁外执行非阻塞休眠
@@ -196,7 +207,10 @@ flowchart TB
       Thread->>Net: 发起同步 HTTP GET 请求
       Net-->>Thread: 返回数据，解析响应
   ```
-- **核心成效**：临界区锁持有时间从数百毫秒压缩到**微秒级**，13 个并发请求可在 `0.0001` 秒内全部领号排期完毕，彻底消除了排队超时雪崩。
+- **锁内排队超时快速失败保护 (Lock-Internal Fast-Fail)**：
+  - 极端高并发下若瞬间涌入上百个东财接口请求，若盲目向后推进 `_next_allowed_time`，后排线程领到的 `wait_time` 会累加至数十秒（如 55 秒），会导致 FastAPI Worker 线程池全数被锁外长休眠挂起。更严重的是，若抛异常发生在锁外，锁内时间戳已被推到几十秒后，后续所有正常请求都会被迫连带等候这批“死号”。
+  - 规范实现：在 `with _em_lock:` 临界区内部计算 `wait_time = start_time - now`。若 `wait_time > 15.0`，直接抛出 `TimeoutError("东财接口排队等待超限...")`，**绝不推进 `_next_allowed_time[0]`**！锁内快速失败既保护了线程池吞吐，又避免了调度时钟被废弃号污染。
+- **核心成效**：临界区锁持有时间压缩至**微秒级**，13 个并发请求可在 `0.0001` 秒内全部领号排期完毕，彻底消除了排队超时雪崩。
 
 ### 5.2 SQLite WAL 并发模式与写超时
 - **技术落地**：在 `KlineCache._conn()` 中配置：
@@ -207,8 +221,10 @@ flowchart TB
   ```
   读写分离，后台异步写入不阻塞并发读请求，杜绝 `OperationalError: database is locked`。
 
-### 5.3 内存去重安全结构 BoundedIdSet
-- **技术落地**：基于 `collections.OrderedDict` 实现严格 FIFO 的容量限制集合：
+### 5.3 内存去重安全结构 BoundedIdSet (严格 FIFO 与防冷门挤压)
+- **LRU vs 严格 FIFO 陷阱消除**：
+  - 原代码逻辑中若包含 `if item in self._data: self._data.move_to_end(item); return`，当外部对常驻或反复推送的热门快讯（如重磅头条）进行重复去重调用时，`move_to_end` 会把该 ID 重置为队列末尾的最鲜活元素。其淘汰策略实际上退化为 **LRU（最近最少使用）**，导致高频热门资讯长期霸占队列，而新进入系统的冷门快讯由于未被频繁访问，反而被提前挤出队列！
+- **技术落地**：基于 `collections.OrderedDict` 实现纯正严格 FIFO，并提供原生 `__contains__` 魔术方法：
   ```python
   class BoundedIdSet:
       def __init__(self, maxlen: int = 4000):
@@ -218,11 +234,14 @@ flowchart TB
       def add(self, item: str):
           if not item: return
           if item in self._data:
-              self._data.move_to_end(item)
+              # 严格 FIFO：已存在元素绝不 move_to_end，保持原有入队时间序不变
               return
           self._data[item] = None
           if len(self._data) > self.maxlen:
               self._data.popitem(last=False)  # 严格 FIFO 弹出最久远 ID
+
+      def __contains__(self, item: str) -> bool:
+          return item in self._data  # O(1) 哈希查询，无副作用
   ```
   公告容量设为 4000 条，快讯容量设为 5000 条，彻底消除内存泄漏风险与清空引起的重复警报风暴。
 
@@ -272,6 +291,15 @@ flowchart TB
   3. 全部通过 ──► 记录原子触发状态，分发 URGENT/ALERT 警报，持久化落盘
 ```
 
+### 6.1 A/H 混排标的单票交易时钟动态路由（解决“全局时段误杀”隐患）
+- **跨市场混排逻辑隐患**：
+  - 在 11:30-12:00（A股午休、港股继续交易）和 15:00-16:00（A股收盘、港股后市与收市竞价）期间，若传入预警引擎的是全局布尔值（如 `cn_session.is_trading or hk_session.is_trading`），在 15:30 港股交易期间，全局标志位为 `True`。这会导致池内 170+ 只已收盘的 A 股标的在 15:00 之后依然通过第 1 关门禁！若某只 A 股恰好过了 30 分钟冷却期，会在 15:30（A股收盘半小时后）突然错误弹出一条“盘中异动预警”；反之若只传入 `cn_session.is_trading`，港股 11:30-12:00 与 15:00-16:00 的全部盘中异动就会被全局屏蔽。
+- **技术落地**：
+  1. 在 [alert_engine.py](file:///c:/ai/antigravity/jiankong/scripts/alert_engine.py) 的 `evaluate_and_gate(quote, is_trading=None)` 内部，若未显式指定 `is_trading`，引擎根据单只标的代码后缀（`.HK` vs `.SH`/`.SZ`/`.BJ`）及 `market` 属性动态路由对应市场专属状态机：
+     - 港股标的（`market == 'HK'` 或 `.HK`） $\longrightarrow$ 严格绑定 `hk_session.is_trading`
+     - A股标的（`market in ['SH', 'SZ', 'BJ']`） $\longrightarrow$ 严格绑定 `cn_session.is_trading`
+  2. 在 [web_server.py](file:///c:/ai/antigravity/jiankong/scripts/web_server.py) 的 `fetch_quotes()` 中，每 3 秒批量拉取全资产行情后，逐票提取其真实市场属性，精准指派单票专属的 `is_stock_trading` 并送入 `evaluate_and_gate`，严禁使用任何全局单一标志位一刀切。
+
 ---
 
 ## 七、 自动化单元与集成验证实测 (Verification Evidence)
@@ -287,45 +315,36 @@ python tests/test_audit_verification.py
   QUANT RADAR (jiankong) 审计与二次纠偏深度验证
 ==================================================
 
---- 1. 宏观核心基准标的测试（纠偏国证2000 399303.SZ）---
-[OK] 399303.SZ -> code=399303.SZ, tencent=sz399303, type=index, name=国证2000
-[OK] 000922.SH -> code=000922.SH, tencent=sh000922, type=index, name=中证红利
-[OK] HSAHP.HK  -> code=HSAHP.HK, tencent=hkHSAHP, type=index, name=恒生AH溢价
+--- 1. 宏观核心基准标的测试 (国证2000 399303.SZ) ---
+[OK] 399303.SZ -> code=399303.SZ, tencent=sz399303, type=index
+[OK] 000922.SH -> code=000922.SH, tencent=sh000922, type=index
+[OK] HSAHP.HK  -> code=HSAHP.HK, tencent=hkHSAHP, type=index
 
---- 2. A/H 跨市场细分双状态机测试（含港股POS/CAS/阻断期）---
-[OK] 09:10:00 (POS申报) - HK=pos_auction, is_trading=False
-[OK] 09:22:00 (POS阻断期) - HK=pos_blocking, is_trading=False
-[OK] 11:45:00 (A股午休港股交易) - CN=lunch(False), HK=morning(True)
-[OK] 15:30:00 (A股收盘港股交易) - CN=closed(False), HK=afternoon(True)
-[OK] 16:05:00 (CAS收市竞价) - HK=closing_auction, is_trading=False
-[OK] 港股独立日历测试: 2026-12-25 港股休市(圣诞节)=False, A股正常交易=True
+--- 2. A/H 双状态机与港股半日市测试 ---
+[OK] 11:45:00 时段 - CN=lunch(is_trading=False), HK=morning(is_trading=True)
+[OK] 港股半日市(12-24)状态验证: 上午交易中 -> 12:05 CAS收市竞价 -> 14:30 全天闭市(成功拦截下午误判)
 
---- 3. 宏观罗盘大小盘轮动（国证2000 vs 沪深300）测试 ---
-[OK] 国证2000(+1.5%) vs 沪深300(+0.2%) -> 大小盘状态: 小盘占优 (diff=+1.30%)
-[OK] AH溢价指数点位: 142.50 (+0.30%)，溢价走阔H股性价比凸显
+--- 3. 宏观罗盘国证2000闭环测试 ---
+[OK] AH溢价指数点位: 142.5
+[OK] 大小盘轮动状态: 盘中国证2000强于大盘 +2.00%
 
---- 4. 预警引擎零值与竞价时段拦截测试 ---
-[OK] 价格<=0 零值异常成功拦截，未误报跌停
-[OK] 集合竞价虚单与非连续交易时段成功屏蔽
-[OK] 连续交易正常触发预警: ['涨跌幅% >= 3.0 (当前 5.80)']
+--- 4. 预警引擎 A/H 混排单票状态机隔离测试 ---
+[OK] 15:30 单票状态机隔离验证成功: A股 TEST_600519.SH 被精确拦截屏蔽，港股 TEST_00700.HK 正常触发预警！
 
---- 5. 除权漂移同日对齐校验机制测试 ---
-[OK] 缓存尾部落后非同日（普通增量更新）未误判除权
-[OK] 缓存同日收盘价发生0.1%以上除权漂移，成功触发缓存失效并重新拉取
+--- 5. 除权首日与月K线跨周期联动失效测试 ---
+[OK] 跨周期联动失效测试成功: 日K检测到除权，调用 invalidate(symbol, freq=None) 同步清空了月K缓存！
 
---- 6. 估值分位数正PE样本过滤与负PE隔离测试 ---
-[OK] 包含负数样本序列的历史估值分位数计算正确过滤负PE（母集仅保留正数）
-[OK] 最新PE<=0标的强制隔离百分位为None，标记为亏损股
+--- 6. 负 PE 历史样本过滤测试 ---
+[OK] 负PE过滤验证成功: 混合样本 [-10.0, -5.0, 10.0, 20.0, 30.0] 中 20.0 的正数分位数为 33.3% (公允值)
 
---- 7. 东方财富接口令牌桶预订模式（13题材并发防雪崩测试）---
-[OK] 13个并发请求在令牌桶预订模式下0.0000秒内完成排期调度，无一超时崩溃
+--- 7. 东财 em_get 锁内超时快速失败保护测试 ---
+[OK] 东财令牌桶超时保护测试成功: 捕获 '东财接口排队等待超限 (30.0s > 15.0s)'，且锁内拒绝排号未污染后续时钟队列！
 
---- 8. SQLite WAL模式与BoundedIdSet内存容量测试 ---
-[OK] SQLite K线库模式: journal_mode=WAL (WAL并发安全), synchronous=1
-[OK] BoundedIdSet 成功保持容量=5，最老 ID 安全淘汰，新 ID 正常保留
+--- 8. BoundedIdSet 严格 FIFO 淘汰机制测试 ---
+[OK] BoundedIdSet 纯正 FIFO 测试成功: 重复访问已存在元素未改变队列时序，成功淘汰最早入队 ID！
 
 ==================================================
-  🎉 全部 8 项二次审计重点验证成功！系统达到金融级鲁棒性！
+  🎉 全部 8 项金融逻辑、跨市场时段与并发架构审计修复验证 100% 通过！
 ==================================================
 ```
 
@@ -343,10 +362,10 @@ python tests/test_audit_verification.py
    - 核验规则: 必须将小微盘风格基准绑定为国证2000 (`399303.SZ` / 腾讯 `sz399303`)，严禁使用中证消费 (`000932.SH`)。
    - 判定标准: 搜索 "000932.SH"，确认其仅标注为消费指数或已被移除；宏观罗盘基准优先匹配 399303.SZ。
 
-2. [CHECK-02] 除权漂移同日对齐
-   - 目标文件: scripts/stock_history_provider.py (函数 get_kline_cached)
-   - 核验规则: 必须支持 target_date 同日收盘价对齐比对，严禁拿跨日数据直接比对。
-   - 判定标准: 代码中必须包含 target_date 匹配逻辑，且漂移阈值必须收紧至 0.001 (0.1%)。
+2. [CHECK-02] 除权漂移同日对齐与跨周期联动失效
+   - 目标文件: scripts/stock_history_provider.py (函数 get_kline_cached, get_stock_history_and_valuation)
+   - 核验规则: 必须支持 target_date 同日收盘价对齐比对（阈值 0.001）；日 K 线作为主裁判检测到漂移必须调用 `kline_cache.invalidate(symbol, freq=None)` 连带删除月 K/周 K 缓存；7 天新鲜度门禁必须前置校验 `maxd >= target_date`；新数据拉取必须核对重叠点收盘价。
+   - 判定标准: 代码中包含 target_date 匹配、freq=None 联动删除逻辑，以及 overlap_drift 校验。
 
 3. [CHECK-03] 禁用前复权价格交叉合成估值
    - 目标文件: scripts/stock_history_provider.py
@@ -355,38 +374,38 @@ python tests/test_audit_verification.py
 
 4. [CHECK-04] 历史估值百分位过滤负 PE
    - 目标文件: scripts/stock_history_provider.py (函数 calculate_percentile)
-   - 核验规则: 计算百分位时，母集必须排除 hist_pe <= 0 的样本。
+   - 核验规则: 计算百分位时，母集必须排除 hist_pe <= 0 的样本；最新 PE <= 0 时强制隔离百分位为 None。
    - 判定标准: 存在 `valid_hist = [x for x in hist_values if x > 0]` 类似清洗逻辑。
 
-5. [CHECK-05] 港股开市前竞价时段细分
+5. [CHECK-05] 港股开市前竞价时段细分与法定半日市
    - 目标文件: scripts/market_session.py (函数 get_hk_session)
-   - 核验规则: 必须细分 POS 竞价申报 (09:00-09:20) 与不可撤单撮合暂停/阻断期 (09:20-09:30)。
-   - 判定标准: 09:20-09:30 返回 pos_blocking，is_trading 必须为 False。
+   - 核验规则: 必须细分 POS 竞价申报 (09:00-09:20) 与阻断期 (09:20-09:30)；且支持港交所法定半日市（平安夜 12-24、大除夕 12-31）下午全天闭市。
+   - 判定标准: 存在 `HK_HALF_DAYS` 常量表，半日市 12:10 之后强制切换为 `closed` (is_trading=False)。
 
 6. [CHECK-06] 港股交易日历彻底解耦 BaoStock
    - 目标文件: scripts/market_session.py (函数 is_trading_day)
    - 核验规则: 港股交易日判断不能依赖 BaoStock，必须具备独立港股节假日配置。
    - 判定标准: 存在 HK_KNOWN_HOLIDAYS 表，且 market="HK" 时优先查阅港股日历。
 
-7. [CHECK-07] 东方财富接口令牌桶预订并发模型
+7. [CHECK-07] 东方财富接口令牌桶预订并发模型与锁内超时保护
    - 目标文件: scripts/stock_history_provider.py (函数 em_get)
-   - 核验规则: 锁内仅执行微秒级领号预订时间戳，严禁在持有锁期间执行 time.sleep 或网络 IO。
-   - 判定标准: with _em_lock 内部仅计算 _next_allowed_time，sleep 和 requests.get 均在锁外部。
+   - 核验规则: 锁内仅执行微秒级领号预订时间戳；且在 `wait_time > 15.0` 时锁内拒绝领号并快速失败抛出 `TimeoutError`，绝不推进时间戳。
+   - 判定标准: `with _em_lock:` 内部包含 `wait_time > 15.0` 检查，锁外执行 `time.sleep` 与网络请求。
 
 8. [CHECK-08] SQLite WAL 模式与并发超时
    - 目标文件: scripts/stock_history_provider.py (类 KlineCache)
    - 核验规则: 必须显式开启 PRAGMA journal_mode=WAL 和 PRAGMA synchronous=NORMAL，connect timeout >= 30.0。
    - 判定标准: 检查 _conn() 方法中是否包含上述两项 PRAGMA 执行语句。
 
-9. [CHECK-09] 内存去重队列 FIFO 容量控制
+9. [CHECK-09] 内存去重队列纯正严格 FIFO
    - 目标文件: scripts/web_server.py (类 BoundedIdSet)
-   - 核验规则: 必须采用基于 OrderedDict 的 FIFO 安全淘汰机制，严禁超过容量时执行破坏性全量 clear。
-   - 判定标准: 检查 popitem(last=False) 淘汰最久远 ID。
+   - 核验规则: 必须采用基于 OrderedDict 的严格 FIFO 机制，已存在元素严禁调用 `move_to_end`，避免热门资讯退化为 LRU 挤压冷门新帖；必须实现 `__contains__`。
+   - 判定标准: `add` 方法中 `if item in self._data: return`，且定义了 `def __contains__(self, item: str)`。
 
-10. [CHECK-10] 预警引擎零值与集合竞价拦截
-    - 目标文件: scripts/alert_engine.py (函数 evaluate_and_gate)
-    - 核验规则: 必须前置校验 price <= 0 或 prev_close <= 0，且在 is_trading == False 时拦截普通涨跌预警。
-    - 判定标准: 异常价格与非连续竞价时段均返回空预警列表。
+10. [CHECK-10] 预警引擎 A/H 混排单票状态机隔离
+    - 目标文件: scripts/alert_engine.py (函数 evaluate_and_gate), scripts/web_server.py (函数 fetch_quotes)
+    - 核验规则: 必须根据单只标的所属市场（A股 vs 港股）独立路由专属交易时钟，严禁使用全局单一 `is_trading` 标志位一刀切。
+    - 判定标准: `evaluate_and_gate` 支持 `is_trading=None` 并根据 `.HK` 或 `market` 自动判定，`fetch_quotes` 为每只标的派发 `is_stock_trading`。
 
 11. [CHECK-11] 端口回收进程白名单校验
     - 目标文件: scripts/web_server.py (函数 ensure_port_available)

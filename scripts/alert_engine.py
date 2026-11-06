@@ -169,19 +169,33 @@ class AlertEngine:
         self._persist()
 
     def evaluate_and_gate(self, item_config: Dict[str, Any], metrics: Dict[str, float],
-                          now_ts: Optional[float] = None, is_trading: bool = True) -> Optional[Dict[str, Any]]:
+                          now_ts: Optional[float] = None, is_trading: Optional[bool] = None) -> Optional[Dict[str, Any]]:
         """
         评估标的预警并通过门禁。命中且通过门禁返回警报核心 dict，否则返回 None。
 
         item_config: watchlist 标的配置 (可用 alert_conditions 自定义，否则用 alert_threshold_pct)
         metrics:     当前行情指标 {price, pct_change, volume, amount, high, low, prev_close}
-        is_trading:  当前是否处于连续竞价交易时间 (默认True，非交易时间/集合竞价自动屏蔽)
+        is_trading:  当前标的所属市场是否处于连续竞价交易时间 (若为None则自动根据标的所属市场严密推断)
         """
         code = item_config.get("code")
         if not code:
             return None
 
-        # 1. 守卫门限：必须处于正式连续竞价时段，屏蔽 09:15-09:25 集合竞价虚单与盘前噪点
+        # 1. 守卫门限：必须处于正式连续竞价时段，严格按标的所属市场区分 (杜绝 A股收盘后借港股交易时间误触发)
+        if is_trading is None:
+            try:
+                from scripts.market_session import get_cn_session, get_hk_session
+                code_upper = str(code).upper()
+                market = str(item_config.get("market", "")).upper()
+                is_hk = (market == "HK") or code_upper.endswith(".HK") or (len(code_upper) == 5 and code_upper.isdigit())
+                cur_dt = datetime.fromtimestamp(now_ts) if now_ts else datetime.now()
+                if is_hk:
+                    is_trading = get_hk_session(cur_dt).get("is_trading", False)
+                else:
+                    is_trading = get_cn_session(cur_dt).get("is_trading", False)
+            except Exception:
+                is_trading = True
+
         if not is_trading:
             return None
 
