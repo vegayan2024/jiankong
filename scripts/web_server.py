@@ -60,6 +60,7 @@ from scripts.aihot_engine import aihot_engine
 from scripts.macro_compass import macro_compass
 from scripts.alert_engine import alert_engine
 from scripts.market_session import get_market_session
+from scripts.push_notifier import push_notifier
 from scripts.models import (
     StockQuoteResponse,
     WatchlistItemCreate,
@@ -90,9 +91,55 @@ http_session.headers.update({
 
 # 行情抓取多线程并发池 (实测提速 4x)
 quote_executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="quote_worker")
+# 消息推送专用线程池 (防止外部 Webhook/HTTP 推送阻塞行情循环)
+push_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="push_worker")
 
 watchlist_manager = WatchlistManager(filepath=JIANKONG_DIR / "watchlist.json")
 WEB_DIR = JIANKONG_DIR / "web"
+
+
+def dispatch_alert_push(al: dict):
+    """异步向微信 PushPlus 等通道推送异动警报"""
+    try:
+        title = f"【异动预警】{al['name']} ({al['code']})"
+        content = (
+            f"• 预警标的: {al['name']} ({al['code']})\n"
+            f"• 最新现价: {al['price']} 元 (今日涨跌: {al['pct_change']:+.2f}%)\n"
+            f"• 触发条件: {al['message']}\n"
+            f"• 监控分组: {al.get('group', '自选')}"
+        )
+        push_notifier.send(
+            title=title,
+            content=content,
+            level=al.get("level", "ALERT"),
+            stock_code=al.get("code"),
+            event_type=al.get("type", "PRICE_ALERT")
+        )
+    except Exception as e:
+        logger.warning(f"推送异动预警异常 ({al.get('code')}): {e}")
+
+
+def dispatch_announcement_push(ann: dict):
+    """异步向微信 PushPlus 等通道推送巨潮法定信披"""
+    try:
+        title = f"【巨潮信披】{ann['name']} ({ann['code']})"
+        content = (
+            f"• 公司标的: {ann['name']} ({ann['code']})\n"
+            f"• 公告标题: {ann['title']}\n"
+            f"• 披露时间: {ann.get('time', '')}\n"
+            f"• 官方来源: 巨潮资讯网 (CNINFO)"
+        )
+        level = "URGENT" if any(w in ann.get("title", "") for w in ["预告", "快报", "分红", "重组", "立案", "减持", "回购", "重大合同"]) else "INFO"
+        push_notifier.send(
+            title=title,
+            content=content,
+            level=level,
+            stock_code=ann.get("code"),
+            event_type="ANNOUNCEMENT",
+            url=ann.get("url") or None
+        )
+    except Exception as e:
+        logger.warning(f"推送巨潮公告异常 ({ann.get('code')}): {e}")
 
 
 class BoundedIdSet:
@@ -354,6 +401,7 @@ def fetch_batch_quotes():
             for al in chunk_a:
                 if not any(a["id"] == al["id"] for a in recent_alerts[:25]):
                     recent_alerts.insert(0, al)
+                    push_executor.submit(dispatch_alert_push, al)
         except Exception as e:
             logger.warning(f"获取并发结果异常: {e}")
 
@@ -400,7 +448,7 @@ def fetch_cninfo_announcements_sync():
                         else:
                             formatted_pub_time = f"{today_str} {now_str}"
 
-                        recent_announcements.insert(0, {
+                        ann_entry = {
                             "id": ann_id,
                             "time": formatted_pub_time,
                             "date": formatted_pub_time.split(" ")[0] if " " in formatted_pub_time else today_str,
@@ -409,7 +457,9 @@ def fetch_cninfo_announcements_sync():
                             "title": title,
                             "url": full_url,
                             "source": "巨潮资讯 (CNINFO)"
-                        })
+                        }
+                        recent_announcements.insert(0, ann_entry)
+                        push_executor.submit(dispatch_announcement_push, ann_entry)
                         if len(recent_announcements) > 50:
                             recent_announcements.pop()
         except Exception as e:

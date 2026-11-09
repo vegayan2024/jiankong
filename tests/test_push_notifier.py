@@ -132,3 +132,76 @@ def test_windows_toast_script_generation(monkeypatch):
     ps_cmd = called_cmds[0]
     assert "powershell" in ps_cmd[0]
     assert "-NoProfile" in ps_cmd
+
+
+def test_web_server_dispatch_alert_push(monkeypatch):
+    """
+    测试 web_server.py 的 dispatch_alert_push 能够正确调用 push_notifier.send
+    """
+    from scripts.web_server import dispatch_alert_push
+    import scripts.web_server as ws
+
+    sent_records = []
+    def fake_send(title, content, level, stock_code, event_type, url=None):
+        sent_records.append({
+            "title": title, "content": content, "level": level,
+            "stock_code": stock_code, "event_type": event_type, "url": url
+        })
+        return True
+
+    monkeypatch.setattr(ws.push_notifier, "send", fake_send)
+
+    dummy_alert = {
+        "id": "ALERT_TEST_1",
+        "code": "688256.SH",
+        "name": "寒武纪",
+        "price": 450.0,
+        "pct_change": 5.74,
+        "message": "寒武纪 触发单阈值预警：涨跌幅% >= 5.0 (当前 5.74)",
+        "level": "ALERT",
+        "type": "PRICE_SURGE",
+        "group": "周期基本盘"
+    }
+
+    dispatch_alert_push(dummy_alert)
+    assert len(sent_records) == 1
+    rec = sent_records[0]
+    assert "寒武纪" in rec["title"]
+    assert "688256.SH" in rec["stock_code"]
+    assert "+5.74%" in rec["content"]
+    assert rec["level"] == "ALERT"
+
+
+def test_web_server_dispatch_announcement_push(monkeypatch):
+    """
+    测试 web_server.py 的 dispatch_announcement_push 能够正确识别公告等级并调用 push_notifier.send
+    """
+    from scripts.web_server import dispatch_announcement_push
+    import scripts.web_server as ws
+
+    sent_records = []
+    def fake_send(title, content, level, stock_code, event_type, url=None):
+        sent_records.append({
+            "title": title, "content": content, "level": level,
+            "stock_code": stock_code, "event_type": event_type, "url": url
+        })
+        return True
+
+    monkeypatch.setattr(ws.push_notifier, "send", fake_send)
+
+    dummy_ann = {
+        "id": "ANN_TEST_1",
+        "code": "688256.SH",
+        "name": "寒武纪",
+        "title": "2026年年度业绩预告",
+        "time": "2026-11-09 10:30:00",
+        "url": "https://static.cninfo.com.cn/test.pdf"
+    }
+
+    dispatch_announcement_push(dummy_ann)
+    assert len(sent_records) == 1
+    rec = sent_records[0]
+    assert "【巨潮信披】" in rec["title"]
+    assert rec["level"] == "URGENT"  # 包含"预告"，应自动升级为 URGENT
+    assert rec["url"] == "https://static.cninfo.com.cn/test.pdf"
+
