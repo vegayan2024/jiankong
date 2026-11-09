@@ -10,6 +10,10 @@ QUANT RADAR (jiankong) - 架构与金融逻辑审计全面自我验证套件 (v2
 6. 估值百分位过滤负 PE (母集仅保留正数)
 7. 东财 em_get 令牌桶预订模式与锁内超时快速失败保护 (不推进时间戳)
 8. BoundedIdSet 严格 FIFO 淘汰机制 (杜绝退化为 LRU)
+9. CHECK-03 严禁交叉合成估值
+10. CHECK-08 SQLite WAL 模式与并发配置
+11. CHECK-11 端口回收进程安全白名单
+12. Phase 0 特性标志位体系验证
 """
 import sys
 import os
@@ -23,13 +27,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BASE_DIR))
 sys.path.insert(0, str(BASE_DIR / "scripts"))
 
-def main():
-    print("==================================================")
-    print("  QUANT RADAR (jiankong) 审计与实战加固深度验证套件")
-    print("==================================================")
 
-    # 1. 验证更正后的小微盘宏观基准标的 (国证2000 399303.SZ)
-    print("\n--- 1. 宏观核心基准标的测试 (国证2000 399303.SZ) ---")
+def test_01_macro_benchmarks():
+    """1. 宏观核心基准标的测试 (国证2000 399303.SZ)"""
     from scripts.watchlist_manager import WatchlistManager, normalize_stock_code
     wm = WatchlistManager(filepath=BASE_DIR / "watchlist.json")
     codes = [item["code"] for item in wm.items]
@@ -39,13 +39,14 @@ def main():
     norm_2000 = normalize_stock_code("399303.SZ")
     norm_div = normalize_stock_code("000922.SH")
     norm_ah = normalize_stock_code("HSAHP.HK")
-    print(f"[OK] 399303.SZ -> code={norm_2000['code']}, tencent={norm_2000['tencent_symbol']}, type={norm_2000['asset_type']}")
-    print(f"[OK] 000922.SH -> code={norm_div['code']}, tencent={norm_div['tencent_symbol']}, type={norm_div['asset_type']}")
-    print(f"[OK] HSAHP.HK  -> code={norm_ah['code']}, tencent={norm_ah['tencent_symbol']}, type={norm_ah['asset_type']}")
+    assert norm_2000["code"] == "399303.SZ"
+    assert norm_div["code"] == "000922.SH"
+    assert norm_ah["code"] == "HSAHP.HK"
 
-    # 2. 验证 A/H 跨市场双状态机与港股半日市 (Half-Day Trading)
-    print("\n--- 2. A/H 双状态机与港股半日市测试 ---")
-    from scripts.market_session import get_cn_session, get_hk_session, get_market_session
+
+def test_02_market_session_ah_dual():
+    """2. A/H 双状态机与港股半日市测试"""
+    from scripts.market_session import get_cn_session, get_hk_session
     
     # 港股 9:10 开市前竞价 POS
     dt_0910 = datetime.strptime("2026-11-06 09:10:00", "%Y-%m-%d %H:%M:%S")
@@ -63,7 +64,6 @@ def main():
     dt_1145 = datetime.strptime("2026-11-06 11:45:00", "%Y-%m-%d %H:%M:%S")
     cn_1145 = get_cn_session(dt_1145)
     hk_1145 = get_hk_session(dt_1145)
-    print(f"[OK] 11:45:00 时段 - CN={cn_1145['session']}(is_trading={cn_1145['is_trading']}), HK={hk_1145['session']}(is_trading={hk_1145['is_trading']})")
     assert cn_1145["is_trading"] is False
     assert hk_1145["is_trading"] is True
 
@@ -77,10 +77,10 @@ def main():
     assert hk_half_m["is_trading"] is True, "半日市上午应正常交易"
     assert hk_half_c["session"] == "closing_auction" and hk_half_c["is_trading"] is False, "半日市12:00-12:10应为CAS"
     assert hk_half_a["session"] == "closed" and hk_half_a["is_trading"] is False, "半日市下午14:30必须闭市(杜绝误判交易中)"
-    print("[OK] 港股半日市(12-24)状态验证: 上午交易中 -> 12:05 CAS收市竞价 -> 14:30 全天闭市(成功拦截下午误判)")
 
-    # 3. 验证宏观罗盘大小盘轮动 (国证2000 vs 沪深300)
-    print("\n--- 3. 宏观罗盘国证2000闭环测试 ---")
+
+def test_03_macro_compass_rotation():
+    """3. 宏观罗盘国证2000闭环测试"""
     from scripts.macro_compass import MacroCompassEngine
     quotes_sample = {
         "399303.SZ": {"code": "399303.SZ", "name": "国证2000", "price": 8500.0, "pct_change": 2.50, "prev_close": 8292.68},
@@ -93,11 +93,11 @@ def main():
     mc.update_from_quotes(quotes_sample)
     compass = mc.get_full_status()
     assert compass["market_cap_style"]["bias"] == "小盘", "大小盘基准未对标国证2000识别为小盘占优"
-    print(f"[OK] AH溢价指数点位: {compass['southbound_ah']['ah_premium_index']}")
-    print(f"[OK] 大小盘轮动状态: {compass['market_cap_style']['intraday_status']}")
+    assert compass["southbound_ah"]["ah_premium_index"] == 142.5
 
-    # 4. 验证预警引擎 A/H 标的独立状态机隔离
-    print("\n--- 4. 预警引擎 A/H 混排单票状态机隔离测试 ---")
+
+def test_04_alert_engine_market_isolation():
+    """4. 预警引擎 A/H 混排单票状态机隔离测试"""
     from scripts.alert_engine import AlertEngine
     ae = AlertEngine()
     # 模拟 15:30 (A股收盘 closed/is_trading=False，港股交易 afternoon/is_trading=True)
@@ -116,10 +116,10 @@ def main():
     # 港股在 15:30 正常触发
     alert_hk = ae.evaluate_and_gate(cfg_hk_stock, metrics_alert, now_ts=now_ts_1530, is_trading=None)
     assert alert_hk is not None, "港股标的在 15:30 处于交易中，必须正常触发预警！"
-    print("[OK] 15:30 单票状态机隔离验证成功: A股 TEST_600519.SH 被精确拦截屏蔽，港股 TEST_00700.HK 正常触发预警！")
 
-    # 5. 验证除权首日 (T日) 与月K跨周期联动失效
-    print("\n--- 5. 除权首日与月K线跨周期联动失效测试 ---")
+
+def test_05_kline_cache_invalidation():
+    """5. 除权首日与月K线跨周期联动失效测试"""
     from scripts.stock_history_provider import kline_cache, get_kline_cached
     test_sym = "TEST_DIV_LINK.SH"
     
@@ -137,19 +137,19 @@ def main():
     # 验证联动失效：日K与月K必须被全部删除清空！
     assert len(kline_cache.read(test_sym, "day")) == 0, "日K缓存应被清空"
     assert len(kline_cache.read(test_sym, "month")) == 0, "联动失效未生效：月K缓存必须被同步连带清空！"
-    print("[OK] 跨周期联动失效测试成功: 日K检测到除权，调用 invalidate(symbol, freq=None) 同步清空了月K缓存！")
 
-    # 6. 验证负 PE 历史样本过滤
-    print("\n--- 6. 负 PE 历史样本过滤测试 ---")
+
+def test_06_pe_percentile_negative_filter():
+    """6. 负 PE 历史样本过滤测试"""
     from scripts.stock_history_provider import calculate_percentile
     hist_pe_mixed = [-10.0, -5.0, 10.0, 20.0, 30.0]
     p_pos = calculate_percentile(hist_pe_mixed, 20.0)
     # 正数样本仅有 [10.0, 20.0, 30.0]，严格小于 20.0 的仅有 10.0，分位数应为 1/3 = 33.3%
     assert abs(p_pos - 33.3) < 0.1, f"负PE过滤后分位数应为33.3%，实际计算为 {p_pos}%"
-    print(f"[OK] 负PE过滤验证成功: 混合样本 {hist_pe_mixed} 中 20.0 的正数分位数为 {p_pos:.1f}% (公允值)")
 
-    # 7. 验证东财 em_get 锁内超时排队上限保护 (不推进时间戳)
-    print("\n--- 7. 东财 em_get 锁内超时快速失败保护测试 ---")
+
+def test_07_eastmoney_rate_limit_protection():
+    """7. 东财 em_get 锁内超时快速失败保护测试"""
     import scripts.stock_history_provider as shp
     with shp._em_lock:
         shp._next_allowed_time[0] = time.monotonic() + 30.0  # 人工制造 30 秒排队堆积
@@ -159,15 +159,15 @@ def main():
     try:
         shp.em_get("https://datacenter-web.eastmoney.com/test", timeout=1.0)
         assert False, "排队超限未抛出 TimeoutError"
-    except TimeoutError as te:
+    except TimeoutError:
         with shp._em_lock:
             t_after = shp._next_allowed_time[0]
             shp._next_allowed_time[0] = 0.0  # 恢复现场
         assert t_after == t_before, "快速失败但时间戳被错误推进了！"
-        print(f"[OK] 东财令牌桶超时保护测试成功: 捕获 '{te}'，且锁内拒绝排号未污染后续时钟队列！")
 
-    # 8. 验证 BoundedIdSet 严格 FIFO 淘汰机制 (防退化为 LRU)
-    print("\n--- 8. BoundedIdSet 严格 FIFO 淘汰机制测试 ---")
+
+def test_08_bounded_id_set_fifo():
+    """8. BoundedIdSet 严格 FIFO 淘汰机制测试"""
     from scripts.web_server import BoundedIdSet
     bis = BoundedIdSet(maxlen=3)
     bis.add("A")
@@ -179,20 +179,20 @@ def main():
     bis.add("D")
     assert "A" not in bis, "严格 FIFO 必须淘汰最先进入的 A！"
     assert "B" in bis and "C" in bis and "D" in bis, "集合中应保留 B, C, D"
-    print("[OK] BoundedIdSet 纯正 FIFO 测试成功: 重复访问已存在元素未改变队列时序，成功淘汰最早入队 ID！")
 
-    # 9. 验证 CHECK-03 严禁交叉合成估值
-    print("\n--- 9. 严禁交叉合成估值验证 (CHECK-03) ---")
+
+def test_09_check_03_no_cross_synthesis():
+    """9. 严禁交叉合成估值验证 (CHECK-03)"""
     shp_path = BASE_DIR / "scripts" / "stock_history_provider.py"
     with open(shp_path, "r", encoding="utf-8") as f:
         shp_content = f.read()
-    # 验证没有用前复权价格交叉相除未复权财务指标的代码痕迹
     assert "calc_pe = round(close / eps" not in shp_content, "违背 CHECK-03: 严禁用前复权收盘价除以 EPS 拼凑 PE"
     assert "calc_pb = round(close / bps" not in shp_content, "违背 CHECK-03: 严禁用前复权收盘价除以 BPS 拼凑 PB"
-    print("[OK] CHECK-03 验证成功: 代码严格遵循估值仅采信官方日频序列原则，严禁交叉相除合成！")
 
-    # 10. 验证 CHECK-08 SQLite WAL 模式与并发配置
-    print("\n--- 10. SQLite WAL 模式与并发配置验证 (CHECK-08) ---")
+
+def test_10_check_08_sqlite_wal():
+    """10. SQLite WAL 模式与并发配置验证 (CHECK-08)"""
+    from scripts.stock_history_provider import kline_cache
     conn = kline_cache._conn()
     cur = conn.cursor()
     cur.execute("PRAGMA journal_mode;")
@@ -201,19 +201,19 @@ def main():
     s_mode = cur.fetchone()[0]
     assert j_mode == "wal", f"SQLite journal_mode 应为 wal，实际为 {j_mode}"
     assert s_mode in [1, "1", "NORMAL", "normal"], f"SQLite synchronous 应为 NORMAL(1)，实际为 {s_mode}"
-    print(f"[OK] CHECK-08 验证成功: SQLite WAL 模式已就绪 (journal_mode={j_mode}, synchronous={s_mode})！")
 
-    # 11. 验证 CHECK-11 端口回收安全白名单
-    print("\n--- 11. 端口回收进程安全白名单验证 (CHECK-11) ---")
+
+def test_11_check_11_process_whitelist():
+    """11. 端口回收进程安全白名单验证 (CHECK-11)"""
     ws_path = BASE_DIR / "scripts" / "web_server.py"
     with open(ws_path, "r", encoding="utf-8") as f:
         ws_content = f.read()
     assert "is_our_process = (\"python\" in p_name)" in ws_content, "违背 CHECK-11: 缺少 python 进程名白名单判断"
     assert "web_server.py" in ws_content and "jiankong" in ws_content, "违背 CHECK-11: 缺少命令行白名单判定"
-    print("[OK] CHECK-11 验证成功: 端口回收严格限定于本项目进程，严禁误杀外部进程！")
 
-    # 12. 验证 Phase 0 基础设施：特性标志位 (Feature Flags)
-    print("\n--- 12. Phase 0 特性标志位体系验证 (Feature Flags) ---")
+
+def test_12_phase0_feature_flags():
+    """12. Phase 0 特性标志位体系验证 (Feature Flags)"""
     ff_path = BASE_DIR / "feature_flags.json"
     assert ff_path.exists(), "未找到 feature_flags.json"
     with open(ff_path, "r", encoding="utf-8") as f:
@@ -222,12 +222,22 @@ def main():
     assert "ENABLE_GRIDSTACK" in ff_data, "缺少 ENABLE_GRIDSTACK 特性开关"
     assert "ENABLE_SHADOW_CYQ" in ff_data, "缺少 ENABLE_SHADOW_CYQ 特性开关"
     assert "ENABLE_EVENT_BUS" in ff_data, "缺少 ENABLE_EVENT_BUS 特性开关"
-    print(f"[OK] Feature Flags 验证成功: 载入 {len(ff_data)} 项特性开关 (USE_KLINECHARTS={ff_data.get('USE_KLINECHARTS')})！")
 
+
+def main():
+    print("==================================================")
+    print("  QUANT RADAR (jiankong) 审计与实战加固深度验证套件")
+    print("==================================================")
+    for i in range(1, 13):
+        func_name = f"test_{i:02d}_"
+        matching = [f for f in globals() if f.startswith(func_name)]
+        if matching:
+            globals()[matching[0]]()
+            print(f"[OK] {matching[0]} 验证通过！")
     print("\n==================================================")
     print("  🎉 全部 12 项金融逻辑、跨市场时段、架构并发与 Phase 0 门禁验证 100% 通过！")
     print("==================================================")
 
+
 if __name__ == "__main__":
     main()
-
