@@ -18,6 +18,7 @@
 """
 
 import os
+import re
 import sys
 import time
 import json
@@ -78,12 +79,15 @@ class PushNotifier:
         if self.config_path.exists():
             try:
                 user_cfg = json.loads(self.config_path.read_text(encoding="utf-8"))
+                # 先暂存 .env 派生的 channels，避免 update() 用 JSON 中的空值整体覆盖
+                env_channels = dict(default_config["channels"])
+                user_channels = user_cfg.pop("channels", None) or {}
                 default_config.update(user_cfg)
+                default_config["channels"] = env_channels
                 # 嵌套 channels 增量合并：若 JSON 中为空但已从 .env 读取到有效值，则保留 .env 中的有效值
-                if "channels" in user_cfg:
-                    for ck, cv in user_cfg["channels"].items():
-                        if cv or not default_config["channels"].get(ck):
-                            default_config["channels"][ck] = cv
+                for ck, cv in user_channels.items():
+                    if cv or not env_channels.get(ck):
+                        env_channels[ck] = cv
             except Exception as e:
                 logger.warning(f"读取推送配置 {self.config_path} 异常: {e}")
         else:
@@ -319,7 +323,7 @@ class PushNotifier:
                     logger.info(msg)
                     return True, msg
                 else:
-                    err_msg = f"PushPlus 微信推送被拒: code={data.get('code')}, msg={data.get('msg')}"
+                    err_msg = f"PushPlus 微信推送被拒: code={data.get('code')}, msg={data.get('msg')}, data={data.get('data')}"
                     logger.warning(err_msg)
                     return False, err_msg
         except Exception as e:
