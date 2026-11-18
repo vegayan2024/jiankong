@@ -1,49 +1,121 @@
 [
   {
-    "title": "现货黄金突破4130美元/盎司，日内涨1.49%。",
-    "content": "现货黄金突破4130美元/盎司，日内涨1.49%。",
-    "time": "2026-11-09 10:06:23",
+    "title": "【嘉化能源：拟签2027-2029年关联交易框架合同，预计每年金额29.75亿元】嘉化能源公告，公司拟与中国三江精细化工",
+    "content": "【嘉化能源：拟签2027-2029年关联交易框架合同，预计每年金额29.75亿元】嘉化能源公告，公司拟与中国三江精细化工有限公司（含下属全资及控股公司）签署三年（2027-2029）关联交易框架合同，预计2027年至2029年每年发生金额均为29.75亿元，其中采购乙烯13亿元，销售蒸汽10亿元、脂肪醇4亿元、存储及装卸服务2.75亿元。2026年1-10月实际发生金额13.2亿元。该事项已获董事会审议通过，尚需提交股东会审议。",
+    "time": "2026-11-18 17:39:48",
+    "category": "化工",
+    "source_name": "新浪财经·7x24快讯",
+    "source_type": "industry_intel",
+    "url": "https://finance.sina.com.cn/7x24/",
+    "authority_score": 7.8,
+    "impact_score": 6.3,
+    "total_score": 7.0,
+    "impact_logic": "触及核心产业催化因子：[合同]，对产业链供需与估值具备显著指向意义。",
+    "matched_stocks": [],
+    "is_hot": false,
+    "is_pinned": true,
+    "pinned_badge": "📌 核心板块 · 化工"
+  },
+  {
+    "title": "科创50指数涨超2% 三市成交额不足1.4万亿 算力租赁概念掀涨停潮",
+    "content": "【收盘播报】沪指涨0.09%，深证成指涨0.20%，创业板指涨0.85%，科创50指数涨2.19%。成交额不足1.4万亿，通信服务、元件、航运港口涨幅居前，稀土、影视院线、医疗美容、贵金属板块跌幅居前。",
+    "time": "2026-11-18 15:00:03",
+    "category": "有色金属",
+    "source_name": "行业权威视点·深度要闻",
+    "source_type": "industry_intel",
+    "url": "https://kuaixun.eastmoney.com/",
+    "authority_score": 7.8,
+    "impact_score": 5.0,
+    "total_score": 6.3,
+    "impact_logic": "常规行业运行与跟踪资讯。",
+    "matched_stocks": [
+      {
+        "code": "000688.SH",
+        "name": "科创50",
+        "group": "主要指数"
+      },
+      {
+        "code": "399006.SZ",
+        "name": "创业板指",
+        "group": "主要指数"
+      }
+    ],
+    "is_hot": false,
+    "is_pinned": true,
+    "pinned_badge": "📌 核心板块 · 有色"
+  },
+  {
+    "title": "【紫金矿业今日大宗交易平价成交2852.59万股，成交额6.99亿元】11月18日，紫金矿业大宗交易成交2852.59万",
+    "content": "【紫金矿业今日大宗交易平价成交2852.59万股，成交额6.99亿元】11月18日，紫金矿业大宗交易成交2852.59万股，成交额6.99亿元，占当日总成交额的7.84%，成交价24.52元，较市场收盘价24.52元持平。",
+    "time": "2026-11-18 17:31:04",
     "category": "战略贵金属",
     "source_name": "新浪财经·7x24快讯",
     "source_type": "industry_intel",
     "url": "https://finance.sina.com.cn/7x24/",
     "authority_score": 7.8,
-    "impact_score": 6.5,
-    "total_score": 7.1,
-    "impact_logic": "触及核心产业催化因子：[突破]，对产业链供需与估值具备显著指向意义。",
-    "matched_stocks": [],
+    "impact_score": 5.0,
+    "total_score": 6.3,
+    "impact_logic": "常规行业运行与跟踪资讯。",
+    "matched_stocks": [
+      {
+        "code": "02899.HK",
+        "name": "紫金矿业",
+        "group": "风格:战略贵金属"
+      },
+      {
+        "code": "601899.SH",
+        "name": "紫金矿业",
+        "group": "风格:战略贵金属"
+      }
+    ],
     "is_hot": false,
     "is_pinned": true,
     "pinned_badge": "📌 核心板块 · 贵金属"
   },
   {
-    "title": "人形机器人密集亮相进博会，机器人ETF鹏华涨超2%",
-    "content": "【人形机器人密集亮相进博会，机器人ETF鹏华涨超2%】消息面上，11月5日至10日，第九届中国国际进口博览会期间，强脑仿生灵巧手Revo3、蓝思科技灵巧手、智元精灵G2与远征A3人形机器人等展项在中国馆亮相，集中展现我国在人形机器人核心部件与人机交互领域的创新实力。",
-    "time": "2026-11-09 10:24:00",
-    "category": "人形机器人",
-    "source_name": "东方财富·产业快讯直通车",
+    "title": "台积电等代工厂启动涨价，芯片ETF东财上涨2.19%",
+    "content": "【台积电等代工厂启动涨价，芯片ETF东财上涨2.19%】今日，半导体板块走强，截至发稿，芯片ETF东财（159599）上涨2.19%，成交额8390万元，交投较为活跃。消息面上，据芯片设计行业人士透露，台积电等多家头部晶圆代工厂已向下游客户下发调价通知，本轮涨价幅度覆盖 10% 至 20% 以上区间。",
+    "time": "2026-11-18 13:21:05",
+    "category": "自主算力芯片",
+    "source_name": "行业权威视点·深度要闻",
     "source_type": "industry_intel",
     "url": "https://kuaixun.eastmoney.com/",
     "authority_score": 7.8,
-    "impact_score": 6.5,
-    "total_score": 7.1,
-    "impact_logic": "触及核心产业催化因子：[人形机器人]，对产业链供需与估值具备显著指向意义。",
+    "impact_score": 6.8,
+    "total_score": 7.2,
+    "impact_logic": "触及核心产业催化因子：[涨价]，对产业链供需与估值具备显著指向意义。",
     "matched_stocks": [
       {
-        "code": "562500.SH",
-        "name": "机器人ETF",
-        "group": "热点ETF:人形机器人"
+        "code": "159995.SZ",
+        "name": "芯片ETF",
+        "group": "热点ETF:硬科技芯片"
       }
     ],
     "is_hot": false,
     "is_pinned": false
   },
   {
-    "title": "CPO概念持续走高 烽火通信涨停",
-    "content": "CPO概念持续走高，截至发稿，烽火通信涨停，斯瑞新材、源杰科技、工业富联等涨幅居前。",
-    "time": "2026-11-09 10:10:00",
-    "category": "算力光模块与通信",
+    "title": "恒瑞医药：HRS-2329片等五款药物临床试验获批",
+    "content": "【恒瑞医药：HRS-2329片等五款药物临床试验获批】恒瑞医药11月18日公告，公司及子公司苏州盛迪亚生物医药有限公司、上海盛迪医药有限公司、上海恒瑞医药有限公司收到国家药品监督管理局核准签发的关于HRS-2329片、HRS-6093片、注射用SHR-9839（sc）、HRS-4642注射液、阿得贝利单抗注射液的《药物临床试验批准通知书》。",
+    "time": "2026-11-18 17:02:12",
+    "category": "创新药出海",
     "source_name": "东方财富·产业快讯直通车",
+    "source_type": "industry_intel",
+    "url": "https://kuaixun.eastmoney.com/",
+    "authority_score": 7.8,
+    "impact_score": 6.6,
+    "total_score": 7.1,
+    "impact_logic": "触及核心产业催化因子：[获批]，对产业链供需与估值具备显著指向意义。",
+    "matched_stocks": [],
+    "is_hot": false,
+    "is_pinned": false
+  },
+  {
+    "title": "CPO概念局部走强 华工科技涨停",
+    "content": "CPO概念局部走强，华工科技涨停，蘅东光、景旺电子、工业富联、光迅科技等跟涨。",
+    "time": "2026-11-18 10:01:35",
+    "category": "算力光模块与通信",
+    "source_name": "行业权威视点·深度要闻",
     "source_type": "industry_intel",
     "url": "https://kuaixun.eastmoney.com/",
     "authority_score": 7.8,
@@ -55,131 +127,23 @@
     "is_pinned": false
   },
   {
-    "title": "【共封装光学(CPO)板块走高，声迅股份涨停】共封装光学(CPO)板块走高，声迅股份涨停，世运电路、烽火通信此前封板，通",
-    "content": "【共封装光学(CPO)板块走高，声迅股份涨停】共封装光学(CPO)板块走高，声迅股份涨停，世运电路、烽火通信此前封板，通则康威涨超10%，超声电子、源杰科技、仕佳光子、南亚新材、澳弘电子等跟涨。相关ETF方面，科创创业人工智能ETF景顺（159142）涨3.16%，成交额2547.65万元，创业板人工智能ETF华夏（159381）涨3.52%，成交额1.05亿元。",
-    "time": "2026-11-09 10:06:01",
-    "category": "算力光模块与通信",
-    "source_name": "新浪财经·7x24快讯",
-    "source_type": "industry_intel",
-    "url": "https://finance.sina.com.cn/7x24/",
-    "authority_score": 7.8,
-    "impact_score": 6.6,
-    "total_score": 7.1,
-    "impact_logic": "触及核心产业催化因子：[CPO]，对产业链供需与估值具备显著指向意义。",
-    "matched_stocks": [],
-    "is_hot": false,
-    "is_pinned": false
-  },
-  {
-    "title": "人形机器人概念持续拉升 上纬新材20cm涨停",
-    "content": "人形机器人概念日内持续走高，上纬新材、祥明智能20cm涨停，此前光洋股份、华培动力、爱仕达、日盈电子涨停，宇树科技、禾川科技、江苏雷利、安培龙等多股涨超10%。",
-    "time": "2026-11-09 09:44:49",
-    "category": "人形机器人",
-    "source_name": "东方财富·产业快讯直通车",
-    "source_type": "industry_intel",
-    "url": "https://kuaixun.eastmoney.com/",
-    "authority_score": 7.8,
-    "impact_score": 6.5,
-    "total_score": 7.1,
-    "impact_logic": "触及核心产业催化因子：[人形机器人]，对产业链供需与估值具备显著指向意义。",
-    "matched_stocks": [],
-    "is_hot": false,
-    "is_pinned": false
-  },
-  {
-    "title": "苹果研究团队披露机器人“大脑”进展 单项任务测试平均成功率为91%",
-    "content": "【苹果研究团队披露机器人“大脑”进展 单项任务测试平均成功率为91%】苹果研究团队披露机器人“大脑”研究进展。当地时间11月4日，苹果研究团队在预印本平台arXiv提交论文《PerceptiveHumanoidMotionfromSimulation》，披露了人形机器人自主控制系统HALO。研究团队还公开了数据生成、模型训练和部署代码，涵盖动作生成、动作跟踪、任务编排以及仿真和真实机器人运行等环节。",
-    "time": "2026-11-07 17:23:57",
-    "category": "人形机器人",
+    "title": "首批主动ETF十大重仓股出炉 茅台、美的、宁德居前三",
+    "content": "【首批主动ETF十大重仓股出炉 茅台、美的、宁德居前三】11月17日晚间，18只ETF主动ETF发布旗下主动ETF上市公告，从截至11月16日的重仓股来看，多只产品重点配置银行、白酒、煤炭、油气等防御性板块，其中6只ETF合计持有贵州茅台3.36亿元居首，7只ETF合计持有美的集团2.48亿元位居次席，5只ETF合计持有宁德时代2.24亿元位居第三。在主动ETF持仓前20个股中，银行股占据7席，合计持有市值达7.92亿元；科技股占据3席，分别为寒武纪、中际旭创、海康威视。",
+    "time": "2026-11-18 09:26:51",
+    "category": "自主算力芯片",
     "source_name": "行业权威视点·深度要闻",
     "source_type": "industry_intel",
     "url": "https://kuaixun.eastmoney.com/",
     "authority_score": 7.8,
     "impact_score": 6.5,
     "total_score": 7.1,
-    "impact_logic": "触及核心产业催化因子：[人形机器人]，对产业链供需与估值具备显著指向意义。",
-    "matched_stocks": [],
-    "is_hot": false,
-    "is_pinned": false
-  },
-  {
-    "title": "多家CXO公司在手订单充裕，港股通创新药ETF鹏华涨超2%",
-    "content": "【多家CXO公司在手订单充裕，港股通创新药ETF鹏华涨超2%】消息面上，伴随创新药出海BD（商务拓展）提速，医药研发等服务需求回暖。近日，多家CXO（医药研发生产外包）上市公司在第三季度业绩说明会上表示，公司在手订单充裕，预计全年业绩有望实现增长，随着第四季度项目交付规模进一步扩大，行业景气度有望延续。“CXO一哥”药明康德前三季度实现营收455.4亿元，同比增长38.6%，在手订单767.4亿元，三个季度净增约170亿元。",
-    "time": "2026-11-09 10:17:40",
-    "category": "创新药出海",
-    "source_name": "东方财富·产业快讯直通车",
-    "source_type": "industry_intel",
-    "url": "https://kuaixun.eastmoney.com/",
-    "authority_score": 7.8,
-    "impact_score": 6.4,
-    "total_score": 7.0,
-    "impact_logic": "触及核心产业催化因子：[出海]，对产业链供需与估值具备显著指向意义。",
-    "matched_stocks": [],
-    "is_hot": false,
-    "is_pinned": false
-  },
-  {
-    "title": "国产算力出海迎来重要催化！科创芯片设计ETF永赢盘中涨超3%",
-    "content": "【国产算力出海迎来重要催化！科创芯片设计ETF永赢盘中涨超3%】11月9日，科创芯片设计开盘高走，盘中涨超3%，指数前10大成分股中寒武纪、芯原股份涨幅领先。",
-    "time": "2026-11-09 10:05:15",
-    "category": "自主算力芯片",
-    "source_name": "东方财富·产业快讯直通车",
-    "source_type": "industry_intel",
-    "url": "https://kuaixun.eastmoney.com/",
-    "authority_score": 7.8,
-    "impact_score": 6.4,
-    "total_score": 7.0,
-    "impact_logic": "触及核心产业催化因子：[出海]，对产业链供需与估值具备显著指向意义。",
-    "matched_stocks": [
-      {
-        "code": "688256.SH",
-        "name": "寒武纪",
-        "group": "风格:自主算力芯片"
-      }
-    ],
-    "is_hot": false,
-    "is_pinned": false
-  },
-  {
-    "title": "人工智能ETF华富(515980)跟踪指数盘中最高涨超2%，AI基础设施投资保持高强度，中国AI产业有望成为全球成长资金避风港",
-    "content": "【人工智能ETF华富(515980)跟踪指数盘中最高涨超2%，AI基础设施投资保持高强度，中国AI产业有望成为全球成长资金避风港】场内ETF方面，截至2026年11月9日10:02，中证人工智能产业指数(931071)强势上涨1.87%，盘中最高涨超2%，成分股复旦微电上涨9.48%，凌云光上涨7.57%，寒武纪上涨4.74%，天准科技，新易盛等个股跟涨。",
-    "time": "2026-11-09 10:15:42",
-    "category": "自主算力芯片",
-    "source_name": "东方财富·产业快讯直通车",
-    "source_type": "industry_intel",
-    "url": "https://kuaixun.eastmoney.com/",
-    "authority_score": 7.8,
-    "impact_score": 5.0,
-    "total_score": 6.3,
-    "impact_logic": "常规行业运行与跟踪资讯。",
+    "impact_logic": "触及核心产业催化因子：[首批]，对产业链供需与估值具备显著指向意义。",
     "matched_stocks": [
       {
         "code": "688256.SH",
         "name": "寒武纪",
         "group": "风格:自主算力芯片"
       },
-      {
-        "code": "300502.SZ",
-        "name": "新易盛",
-        "group": "风格:算力光模块"
-      }
-    ],
-    "is_hot": false,
-    "is_pinned": false
-  },
-  {
-    "title": "【中际旭创探底回升，盘中涨超5%】中际旭创探底回升，盘中涨超5%，现报470.96元。",
-    "content": "【中际旭创探底回升，盘中涨超5%】中际旭创探底回升，盘中涨超5%，现报470.96元。",
-    "time": "2026-11-09 10:13:35",
-    "category": "算力光模块与通信",
-    "source_name": "新浪财经·7x24快讯",
-    "source_type": "industry_intel",
-    "url": "https://finance.sina.com.cn/7x24/",
-    "authority_score": 7.8,
-    "impact_score": 5.0,
-    "total_score": 6.3,
-    "impact_logic": "常规行业运行与跟踪资讯。",
-    "matched_stocks": [
       {
         "code": "300308.SZ",
         "name": "中际旭创",
@@ -190,9 +154,47 @@
     "is_pinned": false
   },
   {
-    "title": "【美国人工智能建设遭遇电力瓶颈】随着人工智能（AI）技术逐渐落地并有效提高生产效率，美国近两年掀起AI基础设施建设热潮，",
-    "content": "【美国人工智能建设遭遇电力瓶颈】随着人工智能（AI）技术逐渐落地并有效提高生产效率，美国近两年掀起AI基础设施建设热潮，但电力供应已取代芯片成为制约行业发展的新瓶颈。行业企业正采取多种措施为数据中心快速供电，但同时带来的温室气体排放增加等问题不容忽视。行业数据显示，美国正在运行的数据中心已有数千个，但现有数据中心大多规模较小，而超大型云计算服务企业近期推动建设或正在规划中的数据中心项目所需供电能力往往超过1吉瓦甚至10吉瓦，所在地现有电网短时间内无法应对。高盛集团预计，从2025年到2027年，美国数据中心电力需求将翻倍。美国能源部下属劳伦斯伯克利国家实验室在6月发布的报告中预计，到2030年，数据中心用电量可能占美国当年总用电量的11.8%，远高于2023年的4.4%左右。（新华社）",
-    "time": "2026-11-09 10:11:48",
+    "title": "一个品种几十家竞争：半导体设备新纪元 也养不活这么多玩家",
+    "content": "【一个品种几十家竞争：半导体设备新纪元 也养不活这么多玩家】近日，中国电子专用设备工业协会秘书长王志越对第一财经记者表示，半导体设备产业的每一道工序的每一个关键设备，都有几十家国内企业在研发和生产，并且这些企业的差异化并不大。从国际经验来看，三家头部企业通常会吃掉一项关键设备近八成市场。国产替代浪潮，给中国本土企业带来机会，但未来行业整合也是不可避免的。",
+    "time": "2026-11-18 08:59:21",
+    "category": "自主算力芯片",
+    "source_name": "行业权威视点·深度要闻",
+    "source_type": "industry_intel",
+    "url": "https://kuaixun.eastmoney.com/",
+    "authority_score": 7.8,
+    "impact_score": 6.4,
+    "total_score": 7.0,
+    "impact_logic": "触及核心产业催化因子：[国产替代]，对产业链供需与估值具备显著指向意义。",
+    "matched_stocks": [],
+    "is_hot": false,
+    "is_pinned": false
+  },
+  {
+    "title": "【金辰股份：股票交易异常波动 无应披露未披露重大事项】金辰股份公告称，公司股票于2026年11月16日、11月17日、1",
+    "content": "【金辰股份：股票交易异常波动 无应披露未披露重大事项】金辰股份公告称，公司股票于2026年11月16日、11月17日、11月18日连续3个交易日内日收盘价格跌幅偏离值累计超过20%，属于股票交易异常波动情形。经自查并向控股股东、实控人征询，截至公告披露日，不存在影响公司股票交易价格异常波动的重大事项及其他应披露而未披露的重大信息，公司日常经营活动正常，董监高、控股股东及实控人在异动期间未买卖公司股票。敬请广大投资者注意二级市场交易风险，理性决策。",
+    "time": "2026-11-18 17:41:38",
+    "category": "固态电池与新材料",
+    "source_name": "新浪财经·7x24快讯",
+    "source_type": "industry_intel",
+    "url": "https://finance.sina.com.cn/7x24/",
+    "authority_score": 7.8,
+    "impact_score": 5.0,
+    "total_score": 6.3,
+    "impact_logic": "常规行业运行与跟踪资讯。",
+    "matched_stocks": [
+      {
+        "code": "603396.SH",
+        "name": "金辰股份",
+        "group": "风格:固态电池与新材料"
+      }
+    ],
+    "is_hot": false,
+    "is_pinned": false
+  },
+  {
+    "title": "【南向资金今日净买入27.51亿港元】港股通（沪）方面，阿里巴巴-W、中芯国际分别获净买入6.32亿港元、4.98亿港元",
+    "content": "【南向资金今日净买入27.51亿港元】港股通（沪）方面，阿里巴巴-W、中芯国际分别获净买入6.32亿港元、4.98亿港元；智谱净卖出额居首，金额为6203.60万港元；港股通（深）方面，腾讯控股、小米集团-W分别获净买入6.33亿港元、3.81亿港元；阿里巴巴-W净卖出额居首，金额为3.04亿港元。",
+    "time": "2026-11-18 17:40:03",
     "category": "自主算力芯片",
     "source_name": "新浪财经·7x24快讯",
     "source_type": "industry_intel",
@@ -201,117 +203,15 @@
     "impact_score": 5.0,
     "total_score": 6.3,
     "impact_logic": "常规行业运行与跟踪资讯。",
-    "matched_stocks": [],
-    "is_hot": false,
-    "is_pinned": false
-  },
-  {
-    "title": "现货白银  上涨近 3%，至每盎司 53.41 美元。",
-    "content": "现货白银  上涨近 3%，至每盎司 53.41 美元。",
-    "time": "2026-11-09 10:07:58",
-    "category": "战略贵金属",
-    "source_name": "新浪财经·7x24快讯",
-    "source_type": "industry_intel",
-    "url": "https://finance.sina.com.cn/7x24/",
-    "authority_score": 7.8,
-    "impact_score": 5.0,
-    "total_score": 6.3,
-    "impact_logic": "常规行业运行与跟踪资讯。",
-    "matched_stocks": [],
-    "is_hot": false,
-    "is_pinned": false
-  },
-  {
-    "title": "再鼎医药暴拉12%！港股通创新药ETF华宝标的指数大涨3%",
-    "content": "【再鼎医药暴拉12%！港股通创新药ETF华宝标的指数大涨3%】11月9日早盘，港股通创新药再度反弹，100%创新药研发标的——港股通创新药ETF华宝（520880）盘中上穿半年线，标的指数摸高3%！成份股普涨，再鼎医药跳空高开，一度涨超12%，康方生物近7%冲击4连阳，百济神州、信达生物、中国生物制药等多股涨超1%。",
-    "time": "2026-11-09 10:06:47",
-    "category": "创新药出海",
-    "source_name": "东方财富·产业快讯直通车",
-    "source_type": "industry_intel",
-    "url": "https://kuaixun.eastmoney.com/",
-    "authority_score": 7.8,
-    "impact_score": 5.0,
-    "total_score": 6.3,
-    "impact_logic": "常规行业运行与跟踪资讯。",
     "matched_stocks": [
       {
-        "code": "01801.HK",
-        "name": "信达生物",
-        "group": "风格:创新药出海"
+        "code": "00981.HK",
+        "name": "中芯国际",
+        "group": "风格:自主算力芯片"
       },
       {
-        "code": "06160.HK",
-        "name": "百济神州",
-        "group": "风格:创新药出海"
-      },
-      {
-        "code": "688235.SH",
-        "name": "百济神州",
-        "group": "风格:创新药出海"
-      }
-    ],
-    "is_hot": false,
-    "is_pinned": false
-  },
-  {
-    "title": "创新药概念震荡反弹 莱美药业涨超15%",
-    "content": "创新药概念盘中震荡反弹，莱美药业涨超15%，昭衍新药、美迪西、成都先导、荣昌生物、近岸蛋白涨幅靠前。",
-    "time": "2026-11-09 09:57:40",
-    "category": "创新药出海",
-    "source_name": "东方财富·产业快讯直通车",
-    "source_type": "industry_intel",
-    "url": "https://kuaixun.eastmoney.com/",
-    "authority_score": 7.8,
-    "impact_score": 5.0,
-    "total_score": 6.3,
-    "impact_logic": "常规行业运行与跟踪资讯。",
-    "matched_stocks": [],
-    "is_hot": false,
-    "is_pinned": false
-  },
-  {
-    "title": "【创新药概念震荡反弹 莱美药业涨超15%】创新药概念盘中震荡反弹，莱美药业涨超15%，昭衍新药、美迪西、成都先导、荣昌生",
-    "content": "【创新药概念震荡反弹 莱美药业涨超15%】创新药概念盘中震荡反弹，莱美药业涨超15%，昭衍新药、美迪西、成都先导、荣昌生物、近岸蛋白涨幅靠前。消息面上，百济神州公告称，预计2026年度营业收入将介于人民币463亿元至470亿元之间，较此前预测的449亿元至462亿元有所上调。此前中国生物制药公告与跨国药企勃林格殷格翰（BI）签署战略选择权及许可协议，总交易金额高达约70亿美元，涵盖6个临床前肿瘤资产（ADC与TCE）。",
-    "time": "2026-11-09 09:57:15",
-    "category": "创新药出海",
-    "source_name": "新浪财经·7x24快讯",
-    "source_type": "industry_intel",
-    "url": "https://finance.sina.com.cn/7x24/",
-    "authority_score": 7.8,
-    "impact_score": 5.0,
-    "total_score": 6.3,
-    "impact_logic": "常规行业运行与跟踪资讯。",
-    "matched_stocks": [
-      {
-        "code": "06160.HK",
-        "name": "百济神州",
-        "group": "风格:创新药出海"
-      },
-      {
-        "code": "688235.SH",
-        "name": "百济神州",
-        "group": "风格:创新药出海"
-      }
-    ],
-    "is_hot": false,
-    "is_pinned": false
-  },
-  {
-    "title": "继续领涨！台积电拟规划生产3D DRAM先进存储芯片，科创芯片设计ETF国联安(588780)跟踪指数强势涨超2%",
-    "content": "【继续领涨！台积电拟规划生产3D DRAM先进存储芯片，科创芯片设计ETF国联安(588780)跟踪指数强势涨超2%】截至2026年11月9日09:33，科创芯片设计ETF国联安(588780)跟踪指数上证科创板芯片设计主题指数(950162)强势上涨2.13%。科创芯片设计ETF国联安盘中换手0.93%，成交764.93万元。成分股力芯微上涨5.80%，复旦微电上涨4.72%，峰岹科技上涨4.43%，寒武纪，芯原股份等个股跟涨。",
-    "time": "2026-11-09 09:54:19",
-    "category": "自主算力芯片",
-    "source_name": "东方财富·产业快讯直通车",
-    "source_type": "industry_intel",
-    "url": "https://kuaixun.eastmoney.com/",
-    "authority_score": 7.8,
-    "impact_score": 5.0,
-    "total_score": 6.3,
-    "impact_logic": "常规行业运行与跟踪资讯。",
-    "matched_stocks": [
-      {
-        "code": "688256.SH",
-        "name": "寒武纪",
+        "code": "688981.SH",
+        "name": "中芯国际",
         "group": "风格:自主算力芯片"
       }
     ],
@@ -319,58 +219,9 @@
     "is_pinned": false
   },
   {
-    "title": "【通信设备板块走高】通信设备板块走高，烽火通信、东方通信涨停，通则康威、新易盛、天孚通信、阿莱德、光迅科技等纷纷走高。相",
-    "content": "【通信设备板块走高】通信设备板块走高，烽火通信、东方通信涨停，通则康威、新易盛、天孚通信、阿莱德、光迅科技等纷纷走高。相关ETF方面，通信ETF富国（159583）涨3.23%，成交额1.35亿元，通信ETF广发（159507）涨2.86%，成交额1864.56万元。",
-    "time": "2026-11-09 09:51:51",
-    "category": "算力光模块与通信",
-    "source_name": "新浪财经·7x24快讯",
-    "source_type": "industry_intel",
-    "url": "https://finance.sina.com.cn/7x24/",
-    "authority_score": 7.8,
-    "impact_score": 5.0,
-    "total_score": 6.3,
-    "impact_logic": "常规行业运行与跟踪资讯。",
-    "matched_stocks": [
-      {
-        "code": "300502.SZ",
-        "name": "新易盛",
-        "group": "风格:算力光模块"
-      }
-    ],
-    "is_hot": false,
-    "is_pinned": false
-  },
-  {
-    "title": "美伊斡旋再起、现货黄金重回4100美元上方！黄金股ETF永赢盘中涨近3%",
-    "content": "【美伊斡旋再起、现货黄金重回4100美元上方！黄金股ETF永赢盘中涨近3%】场内ETF方面，截至2026年11月9日09:42，黄金股ETF永赢(517520)上涨2.89%，最新价报1.779元，成交额0.98亿元，换手率0.81%，最新规模118.32亿元（截至11月6日）。成分股灵宝黄金上涨6.28%，紫金黄金国际上涨4.62%，中国黄金国际上涨4.38%，赤峰黄金、深中华A、万国黄金集团、中金黄金、山东黄金等个股跟涨。",
-    "time": "2026-11-09 09:49:28",
-    "category": "战略贵金属",
-    "source_name": "东方财富·产业快讯直通车",
-    "source_type": "industry_intel",
-    "url": "https://kuaixun.eastmoney.com/",
-    "authority_score": 7.8,
-    "impact_score": 5.0,
-    "total_score": 6.3,
-    "impact_logic": "常规行业运行与跟踪资讯。",
-    "matched_stocks": [
-      {
-        "code": "01787.HK",
-        "name": "山东黄金",
-        "group": "风格:战略贵金属"
-      },
-      {
-        "code": "600547.SH",
-        "name": "山东黄金",
-        "group": "风格:战略贵金属"
-      }
-    ],
-    "is_hot": false,
-    "is_pinned": false
-  },
-  {
-    "title": "港股生物技术股盘初上扬，再鼎医药大涨超12%，康方生物涨近7%，亚盛医药涨近5%，康诺亚涨近4%，百济神州涨超3%，荣昌",
-    "content": "港股生物技术股盘初上扬，再鼎医药大涨超12%，康方生物涨近7%，亚盛医药涨近5%，康诺亚涨近4%，百济神州涨超3%，荣昌生物涨近3%。",
-    "time": "2026-11-09 09:49:22",
+    "title": "【泽璟制药：ZG006治疗晚期小细胞肺癌关键性临床试验期中分析达到预设主要终点】泽璟制药公告，公司自主研发的1类新药注射",
+    "content": "【泽璟制药：ZG006治疗晚期小细胞肺癌关键性临床试验期中分析达到预设主要终点】泽璟制药公告，公司自主研发的1类新药注射用ZG006单药治疗既往经含铂化疗及至少1种其它系统治疗后（三线及以上）复发或进展的晚期小细胞肺癌患者的随机对照关键性临床试验完成预设期中分析，独立数据监查委员会审核后判定达到预设主要终点。该研究在50余家医院开展，115例受试者按2:1随机接受ZG006 10mg Q2W治疗和研究者选择的治疗。公司将向CDE提交Pre-BLA沟通交流申请，加快推进上市进程。",
+    "time": "2026-11-18 17:39:26",
     "category": "创新药出海",
     "source_name": "新浪财经·7x24快讯",
     "source_type": "industry_intel",
@@ -379,53 +230,15 @@
     "impact_score": 5.0,
     "total_score": 6.3,
     "impact_logic": "常规行业运行与跟踪资讯。",
-    "matched_stocks": [
-      {
-        "code": "06160.HK",
-        "name": "百济神州",
-        "group": "风格:创新药出海"
-      },
-      {
-        "code": "688235.SH",
-        "name": "百济神州",
-        "group": "风格:创新药出海"
-      }
-    ],
+    "matched_stocks": [],
     "is_hot": false,
     "is_pinned": false
   },
   {
-    "title": "港股生物技术股盘初上扬 再鼎医药涨超12%",
-    "content": "港股生物技术股盘初上扬，再鼎医药大涨超12%，康方生物涨近7%，亚盛医药涨近5%，康诺亚涨近4%，百济神州涨超3%，荣昌生物涨近3%。",
-    "time": "2026-11-09 09:49:10",
+    "title": "泽璟制药：ZG006关键性临床试验达预设主要终点",
+    "content": "【泽璟制药：ZG006关键性临床试验达预设主要终点】泽璟制药(688266.SH)公告称，公司自主研发的1类新药注射用ZG006单药治疗晚期小细胞肺癌的关键性临床试验期中分析达到预设主要终点。独立数据监查委员会审核后判定试验达标，公司将向国家药监局药审中心提交Pre-BLA沟通交流申请，加快推进上市进程。该事项对近期业绩无重大影响。",
+    "time": "2026-11-18 17:39:09",
     "category": "创新药出海",
-    "source_name": "东方财富·产业快讯直通车",
-    "source_type": "industry_intel",
-    "url": "https://kuaixun.eastmoney.com/",
-    "authority_score": 7.8,
-    "impact_score": 5.0,
-    "total_score": 6.3,
-    "impact_logic": "常规行业运行与跟踪资讯。",
-    "matched_stocks": [
-      {
-        "code": "06160.HK",
-        "name": "百济神州",
-        "group": "风格:创新药出海"
-      },
-      {
-        "code": "688235.SH",
-        "name": "百济神州",
-        "group": "风格:创新药出海"
-      }
-    ],
-    "is_hot": false,
-    "is_pinned": false
-  },
-  {
-    "title": "商业航天催化频发，太空算力布局推进，卫星ETF永赢盘中涨超6%！",
-    "content": "【商业航天催化频发，太空算力布局推进，卫星ETF永赢盘中涨超6%！】11月9日，A股太空算力、卫星互联网板块走强。相关ETF方面，卫星ETF永赢（159206）盘中涨超6%，成分股信维通信、中国卫星涨停，超捷股份、天银机电、斯瑞新材、西测测试均涨超10%。",
-    "time": "2026-11-09 09:47:42",
-    "category": "商业航天与卫星",
     "source_name": "东方财富·产业快讯直通车",
     "source_type": "industry_intel",
     "url": "https://kuaixun.eastmoney.com/",
@@ -438,10 +251,10 @@
     "is_pinned": false
   },
   {
-    "title": "商业航天概念持续走强 中国卫星涨停",
-    "content": "商业航天概念持续走强，中国卫星涨停，航天电子、航天发展、航天电器、中国卫通、航天南湖、航天智装等跟涨。",
-    "time": "2026-11-09 09:46:40",
-    "category": "商业航天与卫星",
+    "title": "南向资金净买近28亿港元 净买入腾讯控股近9亿港元",
+    "content": "【南向资金净买近28亿港元 净买入腾讯控股近9亿港元】南向十大成交股中，腾讯控股、中芯国际、华虹宏力分别获净买入8.65亿港元、7.43亿港元、7.05亿港元。药明生物、中国海洋石油、智谱分别遭净卖出2.97亿港元、1.36亿港元、6056.28万港元。",
+    "time": "2026-11-18 17:36:01",
+    "category": "自主算力芯片",
     "source_name": "东方财富·产业快讯直通车",
     "source_type": "industry_intel",
     "url": "https://kuaixun.eastmoney.com/",
@@ -451,25 +264,57 @@
     "impact_logic": "常规行业运行与跟踪资讯。",
     "matched_stocks": [
       {
-        "code": "600879.SH",
-        "name": "航天电子",
-        "group": "风格:商业航天与卫星"
+        "code": "00981.HK",
+        "name": "中芯国际",
+        "group": "风格:自主算力芯片"
       },
       {
-        "code": "601698.SH",
-        "name": "中国卫通",
-        "group": "风格:商业航天与卫星"
+        "code": "688981.SH",
+        "name": "中芯国际",
+        "group": "风格:自主算力芯片"
       }
     ],
     "is_hot": false,
     "is_pinned": false
   },
   {
-    "title": "商业航天板块高开 西部材料涨停",
-    "content": "商业航天板块高开，西部材料涨停，钧达股份涨超9%，顺灏股份、天力复合、乾照光电、上海港湾等跟涨。",
-    "time": "2026-11-09 09:28:34",
-    "category": "商业航天与卫星",
-    "source_name": "行业权威视点·深度要闻",
+    "title": "【华兰生物：参股公司度普利尤单抗注射液临床试验申请获受理】华兰生物公告，参股公司华兰安康生物股份有限公司研发的度普利尤单",
+    "content": "【华兰生物：参股公司度普利尤单抗注射液临床试验申请获受理】华兰生物公告，参股公司华兰安康生物股份有限公司研发的度普利尤单抗注射液境内生产药品注册临床试验申请近日获国家药品监督管理局受理，药品注册分类为治疗用生物制品3.3类，规格为300mg（2.0ml）/支（预充式注射器），适应症包括特应性皮炎、哮喘、结节性痒疹、慢性阻塞性肺疾病和大疱性类天疱疮。该药为生物类似药，申请已报送国家药品监督管理局药品审评中心审评审批；临床注册批件取得时间和结果均具有不确定性，对公司近期业绩不会产生影响。",
+    "time": "2026-11-18 17:34:24",
+    "category": "创新药出海",
+    "source_name": "新浪财经·7x24快讯",
+    "source_type": "industry_intel",
+    "url": "https://finance.sina.com.cn/7x24/",
+    "authority_score": 7.8,
+    "impact_score": 5.0,
+    "total_score": 6.3,
+    "impact_logic": "常规行业运行与跟踪资讯。",
+    "matched_stocks": [],
+    "is_hot": false,
+    "is_pinned": false
+  },
+  {
+    "title": "华兰生物：参股公司度普利尤单抗注射液获临床试验申请受理",
+    "content": "【华兰生物：参股公司度普利尤单抗注射液获临床试验申请受理】华兰生物(002007.SZ)公告称，公司参股公司华兰安康收到国家药监局签发的度普利尤单抗注射液境内生产药品注册临床试验申请《受理通知书》。该药品为生物类似药，适应症涵盖特应性皮炎、哮喘、结节性痒疹、慢性阻塞性肺疾病、大疱性类天疱疮等。",
+    "time": "2026-11-18 17:34:18",
+    "category": "创新药出海",
+    "source_name": "东方财富·产业快讯直通车",
+    "source_type": "industry_intel",
+    "url": "https://kuaixun.eastmoney.com/",
+    "authority_score": 7.8,
+    "impact_score": 5.0,
+    "total_score": 6.3,
+    "impact_logic": "常规行业运行与跟踪资讯。",
+    "matched_stocks": [],
+    "is_hot": false,
+    "is_pinned": false
+  },
+  {
+    "title": "美股盘前AI硬件股普遍反弹：英伟达、台积电涨逾3% 光通信板块表现强势",
+    "content": "【美股盘前AI硬件股普遍反弹：英伟达、台积电涨逾3% 光通信板块表现强势】受英伟达财报及营收展望好于市场预期提振，美股盘前AI硬件股普遍走高。英伟达涨3.33%，台积电涨3.56%，博通涨2.27%，美光科技涨3.80%，SK海力士涨4.42%，AMD涨3.05%，英特尔涨2.05%，ARM涨3.60%，闪迪涨4.58%，西部数据涨3.52%，希捷科技涨4.08%。光通信板块表现强势，Lumentum涨5.01%，Coherent涨6.50%。三倍做多半导体ETF（SOXL）涨7.93%。",
+    "time": "2026-11-18 17:27:28",
+    "category": "自主算力芯片",
+    "source_name": "东方财富·产业快讯直通车",
     "source_type": "industry_intel",
     "url": "https://kuaixun.eastmoney.com/",
     "authority_score": 7.8,
@@ -478,18 +323,114 @@
     "impact_logic": "常规行业运行与跟踪资讯。",
     "matched_stocks": [
       {
-        "code": "002149.SZ",
-        "name": "西部材料",
-        "group": "通用资源"
+        "code": "512480.SH",
+        "name": "半导体ETF",
+        "group": "热点ETF:硬科技芯片"
       }
     ],
     "is_hot": false,
     "is_pinned": false
   },
   {
-    "title": "创业板指高开1.19%",
-    "content": "【创业板指高开1.19%】三大指数集体高开，沪指高开0.27%，深成指高开0.87%，创业板指高开1.19%，物理AI、贵金属、半导体芯片等板块指数涨幅居前。",
-    "time": "2026-11-09 09:26:27",
+    "title": "伦敦金属交易所三个月期铝  下跌 3.1%，至每吨 2,844.50 美元。",
+    "content": "伦敦金属交易所三个月期铝  下跌 3.1%，至每吨 2,844.50 美元。",
+    "time": "2026-11-18 17:26:10",
+    "category": "战略贵金属",
+    "source_name": "新浪财经·7x24快讯",
+    "source_type": "industry_intel",
+    "url": "https://finance.sina.com.cn/7x24/",
+    "authority_score": 7.8,
+    "impact_score": 5.0,
+    "total_score": 6.3,
+    "impact_logic": "常规行业运行与跟踪资讯。",
+    "matched_stocks": [],
+    "is_hot": false,
+    "is_pinned": false
+  },
+  {
+    "title": "华东医药：全资子公司HDM4002注射液获临床试验批准",
+    "content": "【华东医药：全资子公司HDM4002注射液获临床试验批准】华东医药(000963.SZ)公告称，公司全资子公司中美华东收到国家药品监督管理局核准签发的《药物临床试验批准通知书》，由中美华东申报的HDM4002注射液临床试验申请获得批准。该药物为治疗用生物制品1类新药，适应症为治疗具有疾病进展风险的原发性免疫球蛋白A肾病成人患者。",
+    "time": "2026-11-18 16:47:05",
+    "category": "创新药出海",
+    "source_name": "东方财富·产业快讯直通车",
+    "source_type": "industry_intel",
+    "url": "https://kuaixun.eastmoney.com/",
+    "authority_score": 7.8,
+    "impact_score": 5.0,
+    "total_score": 6.3,
+    "impact_logic": "常规行业运行与跟踪资讯。",
+    "matched_stocks": [],
+    "is_hot": false,
+    "is_pinned": false
+  },
+  {
+    "title": "伦敦金属交易所铜期货价格下跌3.7%",
+    "content": "伦敦金属交易所（LME）铜期货价格下跌3.7%，至每吨12,742.50美元。",
+    "time": "2026-11-18 16:45:31",
+    "category": "战略贵金属",
+    "source_name": "东方财富·产业快讯直通车",
+    "source_type": "industry_intel",
+    "url": "https://kuaixun.eastmoney.com/",
+    "authority_score": 7.8,
+    "impact_score": 5.0,
+    "total_score": 6.3,
+    "impact_logic": "常规行业运行与跟踪资讯。",
+    "matched_stocks": [],
+    "is_hot": false,
+    "is_pinned": false
+  },
+  {
+    "title": "黑客、系统宕机接连上演 黄金熊市或迎转机？华尔街热议配置新逻辑",
+    "content": "【黑客、系统宕机接连上演 黄金熊市或迎转机？华尔街热议配置新逻辑】在不到20天的时间里，投资者接连见证了全球规模最大的加密货币黑客攻击、数字领域多起引发广泛关注的系统故障，本周还将迎来重磅事件——AI实验室迎来史上首次IPO——Anthropic周四将在纳斯达克挂牌上市。",
+    "time": "2026-11-18 16:01:45",
+    "category": "战略贵金属",
+    "source_name": "行业权威视点·深度要闻",
+    "source_type": "industry_intel",
+    "url": "https://kuaixun.eastmoney.com/",
+    "authority_score": 7.8,
+    "impact_score": 5.0,
+    "total_score": 6.3,
+    "impact_logic": "常规行业运行与跟踪资讯。",
+    "matched_stocks": [],
+    "is_hot": false,
+    "is_pinned": false
+  },
+  {
+    "title": "英伟达临时CEO称将不再向中国出货H200芯片 外交部回应",
+    "content": "【英伟达临时CEO称将不再向中国出货H200芯片 外交部：中方已多次阐明在美国输华芯片问题上的原则立场】11月18日，外交部发言人郭嘉昆主持例行记者会。法新社记者提问，英伟达的临时CEO称，将不再向中国出货H200芯片，中方对此有何评论？郭嘉昆表示，中方此前已经多次阐明在美国输华芯片问题上的原则立场。",
+    "time": "2026-11-18 15:23:36",
+    "category": "自主算力芯片",
+    "source_name": "行业权威视点·深度要闻",
+    "source_type": "industry_intel",
+    "url": "https://kuaixun.eastmoney.com/",
+    "authority_score": 7.8,
+    "impact_score": 5.0,
+    "total_score": 6.3,
+    "impact_logic": "常规行业运行与跟踪资讯。",
+    "matched_stocks": [],
+    "is_hot": false,
+    "is_pinned": false
+  },
+  {
+    "title": "半导体板块活跃 盛合晶微、华虹宏力涨超10%",
+    "content": "半导体板块活跃，盛合晶微、华虹宏力涨超10%，杰华特、利扬芯片、摩尔线程跟涨。",
+    "time": "2026-11-18 13:50:00",
+    "category": "自主算力芯片",
+    "source_name": "行业权威视点·深度要闻",
+    "source_type": "industry_intel",
+    "url": "https://kuaixun.eastmoney.com/",
+    "authority_score": 7.8,
+    "impact_score": 5.0,
+    "total_score": 6.3,
+    "impact_logic": "常规行业运行与跟踪资讯。",
+    "matched_stocks": [],
+    "is_hot": false,
+    "is_pinned": false
+  },
+  {
+    "title": "午后突发！亚太市场集体拉升！美联储大佬最新发声",
+    "content": "【午后突发！亚太市场集体拉升！美联储大佬最新发声】今日午后，A股出现一波拉升行情，上证指数一度翻红，科创50大涨近2%，半导体及半导体设备集体大涨。日本股市亦开盘快速翻红，韩国综合指数（KOSPI）在早盘跳水后由跌转涨、明显走强，涨幅超1%；纳斯达克股指期货也小幅企稳。在全球市场整体偏弱的环境下，哪些变量在扰动行情？",
+    "time": "2026-11-18 13:29:49",
     "category": "自主算力芯片",
     "source_name": "行业权威视点·深度要闻",
     "source_type": "industry_intel",
@@ -500,8 +441,13 @@
     "impact_logic": "常规行业运行与跟踪资讯。",
     "matched_stocks": [
       {
-        "code": "399006.SZ",
-        "name": "创业板指",
+        "code": "000001.SH",
+        "name": "上证指数",
+        "group": "主要指数"
+      },
+      {
+        "code": "000688.SH",
+        "name": "科创50",
         "group": "主要指数"
       }
     ],
@@ -509,57 +455,9 @@
     "is_pinned": false
   },
   {
-    "title": "东方财富财经早餐 11月9日周一",
-    "content": "【东方财富财经早餐 11月9日周一】1、国常会：完善资本市场稳市机制，增强股市内在稳定性。2、发改委召开民营企业座谈会，围绕抓好年内经济工作落实、研究明年政策举措听取意见建议。3、中国央行黄金储备“24连增”。",
-    "time": "2026-11-09 06:00:46",
-    "category": "战略贵金属",
-    "source_name": "行业权威视点·深度要闻",
-    "source_type": "industry_intel",
-    "url": "https://kuaixun.eastmoney.com/",
-    "authority_score": 7.8,
-    "impact_score": 5.0,
-    "total_score": 6.3,
-    "impact_logic": "常规行业运行与跟踪资讯。",
-    "matched_stocks": [],
-    "is_hot": false,
-    "is_pinned": false
-  },
-  {
-    "title": "2.5亿元跨界光通信！汽车内饰商天安新材欲收购嘉万光控股权",
-    "content": "【2.5亿元跨界光通信！汽车内饰商天安新材欲收购嘉万光控股权】天安新材11月8日发布公告，宣布与深圳市嘉万光通信有限公司（以下简称嘉万光）及其股东、创始人签署《股权收购意向协议》，上市公司拟通过“增资+股权转让”方式取得嘉万光62.5%股权。据标的公司微信公众号文章，其成立于2001年，总部位于深圳龙华，产品涵盖ODN（光分配网络）全系连接产品、光纤连接器、跳线、光分路器等，拥有超百项核心专利，业务覆盖全球80多个国家。嘉万光微信公众号今年1月的文章写道，其“95%的产品出口海外”，在欧美市场有着品牌知名度和市场口碑，“是全球光纤连接领域的重要供应商之一”。",
-    "time": "2026-11-09 00:08:48",
-    "category": "算力光模块与通信",
-    "source_name": "行业权威视点·深度要闻",
-    "source_type": "industry_intel",
-    "url": "https://kuaixun.eastmoney.com/",
-    "authority_score": 7.8,
-    "impact_score": 5.0,
-    "total_score": 6.3,
-    "impact_logic": "常规行业运行与跟踪资讯。",
-    "matched_stocks": [],
-    "is_hot": false,
-    "is_pinned": false
-  },
-  {
-    "title": "上纬新材：启元第10000台机器人下线！年内股价大涨超40%",
-    "content": "【上纬新材：启元第10000台机器人下线！年内股价大涨超40%】11月8日，上纬新材发布《关于业务进展的公告》，披露公司在保障新材料业务稳健发展的基础上，消费级具身智能机器人业务产能正在有序爬坡，良率表现良好，“启元Q1”和“启元T1”累计下线10000台。这两款产品于2026年9月20日正式对外发布。",
-    "time": "2026-11-09 00:01:31",
-    "category": "人形机器人",
-    "source_name": "行业权威视点·深度要闻",
-    "source_type": "industry_intel",
-    "url": "https://kuaixun.eastmoney.com/",
-    "authority_score": 7.8,
-    "impact_score": 5.0,
-    "total_score": 6.3,
-    "impact_logic": "常规行业运行与跟踪资讯。",
-    "matched_stocks": [],
-    "is_hot": false,
-    "is_pinned": false
-  },
-  {
-    "title": "周末要闻汇总：国常会要求完善资本市场稳市机制 增强股市内在稳定性",
-    "content": "【周末要闻汇总】1、国常会要求完善资本市场稳市机制，增强股市内在稳定性；2、何立峰与美国财政部长贝森特、贸易代表格里尔举行视频通话；3、美国10月非农就业人数远超市场预期；4、纳指涨超1%，费城半导体指数涨超4%。",
-    "time": "2026-11-08 14:00:36",
+    "title": "浑水做空英伟达 质疑公司前高管与超微前高管有关联",
+    "content": "【浑水做空英伟达 质疑公司前高管与超微前高管有关联】美东时间周二，知名做空机构浑水（MuddyWaters）对外披露，已经建立英伟达空头头寸。浑水在做空报告并未直接抛出财务造假结论，而是围绕一桩GPU违规转卖案件，对英伟达、超微电脑两家企业前高管之间是否存在人际关联提出疑问，进一步放大市场对于英伟达出口合规链条的担忧。",
+    "time": "2026-11-18 13:04:06",
     "category": "自主算力芯片",
     "source_name": "行业权威视点·深度要闻",
     "source_type": "industry_intel",
@@ -573,10 +471,32 @@
     "is_pinned": false
   },
   {
-    "title": "中国10月末外汇储备报34051.78亿美元",
-    "content": "【中国10月末外汇储备报34051.78亿美元】据央行，中国10月末外汇储备报34051.78亿美元，环比9月增加49.27亿美元。中国10月末黄金储备报7830万盎司，9月末为7747万盎司，为连续第24个月增持黄金。",
-    "time": "2026-11-07 10:01:20",
-    "category": "战略贵金属",
+    "title": "三连板后三连跌停 金辰股份的“SpaceX概念”急速退潮",
+    "content": "【三连板后三连跌停，金辰股份的“SpaceX概念”急速退潮】一场由百GW级太空光伏订单点燃的炒作，被一纸澄清公告浇灭。11月18日，金辰股份（603396.SH）再度一字跌停，至此已连续三个交易日开盘即跌停，直观反映出概念炒作被证伪后的资金出逃。此前，这只被市场与SpaceX挂钩的光伏设备股连续三日涨停，累计涨幅达33.08%。",
+    "time": "2026-11-18 12:58:49",
+    "category": "固态电池与新材料",
+    "source_name": "行业权威视点·深度要闻",
+    "source_type": "industry_intel",
+    "url": "https://kuaixun.eastmoney.com/",
+    "authority_score": 7.8,
+    "impact_score": 5.0,
+    "total_score": 6.3,
+    "impact_logic": "常规行业运行与跟踪资讯。",
+    "matched_stocks": [
+      {
+        "code": "603396.SH",
+        "name": "金辰股份",
+        "group": "风格:固态电池与新材料"
+      }
+    ],
+    "is_hot": false,
+    "is_pinned": false
+  },
+  {
+    "title": "美国收紧海外先进算力访问 如何影响中国AI公司？",
+    "content": "【美国收紧海外先进算力访问 如何影响中国AI公司？】11月16日，美国商务部工业与安全局（BIS）升级AI芯片管制手段，限制中国企业通过海外数据中心远程访问先进算力。新规提到，如果某数据中心向总部或最终母公司设在中国（含中国澳门）等地的公司提供超过1200万TPP（总处理性能）的算力，那么知晓该情况的芯片出口商在向该数据中心提供先进AI芯片之前，必须申请许可证，许可将逐案审查。",
+    "time": "2026-11-18 10:54:00",
+    "category": "自主算力芯片",
     "source_name": "行业权威视点·深度要闻",
     "source_type": "industry_intel",
     "url": "https://kuaixun.eastmoney.com/",
@@ -589,10 +509,26 @@
     "is_pinned": false
   },
   {
-    "title": "下修超10%！高盛时隔两个月再度大砍黄金目标",
-    "content": "【下修超10%！高盛时隔两个月再度大砍黄金目标】高盛在周四发布最新报告，大幅下调了黄金价格预期。世界银行也在本周发布的展望中表达了谨慎观点，预计黄金和白银价格将在2027年保持历史高位，但投资者不应指望2026年的爆炸性上涨和波动性会重演。",
-    "time": "2026-11-07 08:51:00",
-    "category": "战略贵金属",
+    "title": "光刻胶板块高开 西陇科学、盛剑科技2连板",
+    "content": "光刻胶板块高开，西陇科学、盛剑科技2连板，联合化学涨超15%，国林科技涨超10%，佳先股份、江化微、斯迪克、格林达、芯碁微装跟涨。",
+    "time": "2026-11-18 09:28:35",
+    "category": "自主算力芯片",
+    "source_name": "行业权威视点·深度要闻",
+    "source_type": "industry_intel",
+    "url": "https://kuaixun.eastmoney.com/",
+    "authority_score": 7.8,
+    "impact_score": 5.0,
+    "total_score": 6.3,
+    "impact_logic": "常规行业运行与跟踪资讯。",
+    "matched_stocks": [],
+    "is_hot": false,
+    "is_pinned": false
+  },
+  {
+    "title": "美国知名做空机构浑水做空英伟达",
+    "content": "【美国知名做空机构浑水做空英伟达】做空机构浑水研究宣布做空英伟达（NVDA.US），并对其管理层与超微电脑（SMCI.US）前高管之间的关系提出质疑。浑水援引一项针对超微电脑的集体诉讼称，该公司前首席增长官CenlyChen曾负责英伟达GPU芯片的采购及客户分配。",
+    "time": "2026-11-18 08:40:57",
+    "category": "自主算力芯片",
     "source_name": "行业权威视点·深度要闻",
     "source_type": "industry_intel",
     "url": "https://kuaixun.eastmoney.com/",
