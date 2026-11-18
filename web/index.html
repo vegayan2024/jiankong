@@ -214,27 +214,30 @@
         <div id="theme-insight-prompt-bar" class="theme-insight-prompt-bar" style="display: none;">
           <div class="prompt-bar-content" onclick="toggleThemeInsight(true)">
             <span class="prompt-icon">💡</span>
-            <span class="prompt-text">已汇聚<strong>全景热点题材·风格·概念主线</strong>及领衔头部公司（同花顺问财 iwencai.com 标准）</span>
+            <span class="prompt-text">已汇聚<strong>近3个交易日概念板块热度排行前15</strong>（同花顺问财开放平台真实数据 · 按热度自动排行 · 区间时间随数据标注）</span>
             <span class="prompt-action">点击展开洞察矩阵 ▾</span>
           </div>
         </div>
 
-        <!-- 🔥 最近一周热点题材·风格·概念全景洞察 (借鉴 iwencai.com) -->
+        <!-- 🔥 问财热点：最近3个交易日概念板块热度排行前15 (hithink-industry-query skill 内化端口) -->
         <section id="theme-insight-section" class="theme-insight-section" style="display: none;">
           <div class="theme-insight-banner">
             <div class="theme-banner-left">
               <span class="theme-banner-badge">🔥 问财热点</span>
-              <span class="theme-banner-title">最近一周热点题材 · 风格 · 概念全景矩阵</span>
-              <span class="theme-banner-sub">权威借鉴同花顺 iwencai.com 概念库 · 核心主线领衔龙头深度透视 · 实时联动盘口</span>
+              <span class="theme-banner-title">核心主线 · 近3个交易日板块热度排行</span>
+              <span class="theme-banner-sub">同花顺问财开放平台真实数据 · 按板块热度自动排行 · 最多15条 · 区间时间随数据标注</span>
             </div>
             <div class="theme-banner-right">
-              <span class="theme-count-badge" id="theme-count-tag">13 大核心主线</span>
-              <button id="btn-refresh-themes" class="theme-expand-btn" onclick="refreshThemeInsight()" title="刷新题材时效数据与区间表现" style="margin-right: 8px;">🔄 刷新指标</button>
+              <span class="theme-count-badge" id="theme-count-tag">-- 热度排行</span>
+              <button id="btn-refresh-themes" class="theme-expand-btn" onclick="refreshThemeInsight()" title="点击实时计算最近3个交易日的热度排行前15 (问财开放平台真实数据)" style="margin-right: 8px;">🔄 刷新指标</button>
               <button id="btn-toggle-insight-expand" class="theme-expand-btn">收起洞察 ▴</button>
             </div>
           </div>
+          <div class="theme-source-note">
+            📌 数据口径声明：榜单 = 同花顺问财开放平台「近3个交易日概念板块热度排名」原生返回字段（板块热度[起-止]窗口热度），全宇宙按热度降序取前 15 · 区间时间 = 问财原生热度窗口起止日 + 本地生成时间，随数据实时标注 · <strong>全部字段为问财真实返回值，无估算、无补值、无静态顶替</strong> · 每交易日 10:00 自动重算，点「🔄 刷新指标」可随时重算
+          </div>
           <div id="theme-insight-grid" class="theme-insight-grid">
-            <!-- 动态渲染精美题材洞察卡片 -->
+            <!-- 动态渲染热度排行卡片 + 区间时间标注 -->
           </div>
         </section>
 
@@ -548,6 +551,9 @@
         </div>
       </div>
     </div>
+
+    <!-- 问财热点二级内容：板块头部代表公司悬浮面板 (点击热度卡片展开) -->
+    <div id="board-leaders-pop" class="board-pop" style="display:none;"></div>
 
     <!-- 抽屉：标的深度详情 -->
     <div id="drawer-overlay" class="drawer-overlay" style="display:none;"></div>

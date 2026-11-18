@@ -59,7 +59,7 @@ from scripts.cninfo_client import cninfo_client
 from scripts.aihot_engine import aihot_engine
 from scripts.macro_compass import macro_compass
 from scripts.alert_engine import alert_engine
-from scripts.market_session import get_market_session
+from scripts.market_session import get_market_session, is_trading_day
 from scripts.push_notifier import push_notifier
 from scripts.models import (
     StockQuoteResponse,
@@ -622,6 +622,9 @@ async def background_polling_loop():
                 asyncio.create_task(asyncio.to_thread(aihot_engine.refresh))
 
             now_dt = datetime.now()
+            # 交易日 10:00 风格题材时效指标自动刷新 (幂等，每日至多一次)
+            if _should_run_theme_auto_refresh(now_dt):
+                asyncio.create_task(asyncio.to_thread(_run_theme_auto_refresh_job))
             # 联动宏观与风格罗盘动量微调
             macro_compass.update_from_quotes(cached_quotes)
             all_quotes_list = list(cached_quotes.values())
@@ -926,71 +929,153 @@ async def refresh_industry_intel():
 
 
 # ==============================================================================
-# 同花顺问财 (iwencai.com) 标准：风格题材全景知识库与动态加载机制
+# 同花顺问财热点：hithink-industry-query skill 内化数据端口 (scripts/iwencai_provider.py)
+# 最近3个交易日概念板块热度排行前15 —— 全部字段为问财开放平台真实返回, 禁止静态顶替
 # ==============================================================================
-THEMES_KNOWLEDGE_BASE_FILE = JIANKONG_DIR / "themes_knowledge_base.json"
 
 
-def load_themes_knowledge_base() -> List[Dict[str, Any]]:
-    """优先从 themes_knowledge_base.json 载入最新全景题材，若异常则安全返回空列表"""
-    if THEMES_KNOWLEDGE_BASE_FILE.exists():
-        try:
-            with open(THEMES_KNOWLEDGE_BASE_FILE, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                if isinstance(data, list) and len(data) > 0:
-                    return data
-        except Exception as e:
-            logger.warning(f"读取题材库 {THEMES_KNOWLEDGE_BASE_FILE} 异常: {e}")
-    return []
+# --- 交易日 10:00 定时自动刷新 (幂等：每交易日至多一次；服务重启后依据数据新鲜度补跑) ---
+_themes_auto_refresh_date: Optional[str] = None
+
+
+def _themes_last_update_date() -> Optional[str]:
+    """读取问财热度排行缓存的计算日期 (YYYY-MM-DD)，失败返回 None"""
+    try:
+        from scripts.iwencai_provider import load_ranking_cache
+        cache = load_ranking_cache()
+        if cache and cache.get("generated_at"):
+            return str(cache["generated_at"])[:10]
+    except Exception:
+        pass
+    return None
+
+
+def _should_run_theme_auto_refresh(now_dt: datetime) -> bool:
+    """交易日 10:00(含)后触发一次题材时效指标刷新；当日已刷新则跳过"""
+    global _themes_auto_refresh_date
+    today = now_dt.strftime("%Y-%m-%d")
+    if _themes_auto_refresh_date == today:
+        return False
+    if now_dt.strftime("%H:%M") < "10:00":
+        return False
+    if not is_trading_day(now_dt.date()):
+        return False
+    if _themes_last_update_date() == today:
+        # 服务重启场景：当日数据已新鲜，标记后跳过，避免重复刷新
+        _themes_auto_refresh_date = today
+        return False
+    _themes_auto_refresh_date = today
+    return True
+
+
+def _run_theme_auto_refresh_job():
+    """定时刷新任务体：重算问财最近3个交易日热度排行前15 + 补拉批量行情"""
+    logger.info("⏰ 交易日定时触发：问财热点 TOP15 热度排行自动刷新 (问财开放平台真实数据)...")
+    try:
+        from scripts.iwencai_provider import fetch_hot_ranking_top15
+        res = fetch_hot_ranking_top15()
+        top1 = res["items"][0]["name"] if res.get("items") else "--"
+        logger.info(
+            f"✅ 问财热点定时刷新完成: window={res['window']['label']} "
+            f"universe={res.get('total_universe')} top1={top1}"
+        )
+    except Exception as e:
+        # 真实性纪律：失败如实记录并留待显式提示，绝不以旧数据/静态内容顶替
+        logger.error(f"问财热点定时刷新失败(不降级、不伪造): {e}", exc_info=True)
+    try:
+        fetch_batch_quotes()
+    except Exception as e:
+        logger.warning(f"定时刷新后批量行情补拉失败: {e}")
 
 
 @app.get("/api/themes/summary")
 async def get_themes_summary():
-    """获取热点题材、风格、概念全景数据 (同花顺问财口径，联动实时行情与时效指标)"""
-    themes = load_themes_knowledge_base()
-    result = []
-    for item in themes:
-        t_copy = dict(item)
-        top_stocks_with_quotes = []
-        for s in item.get("top_stocks", []):
-            code = s.get("code", "")
-            q = cached_quotes.get(code, {})
-            top_stocks_with_quotes.append({
-                "code": code,
-                "name": s.get("name", ""),
-                "role": s.get("role", ""),
-                "desc": s.get("desc", ""),
-                "price": q.get("price", 0.0),
-                "pct_change": q.get("pct_change", 0.0),
-                "market": q.get("market", ""),
-                "symbol": q.get("symbol", ""),
-                "update_time": q.get("update_time", "")
-            })
-        t_copy["top_stocks"] = top_stocks_with_quotes
-        valid_pcts = [s["pct_change"] for s in top_stocks_with_quotes if s.get("price", 0) > 0]
-        t_copy["realtime_avg_pct"] = round(sum(valid_pcts) / len(valid_pcts), 2) if valid_pcts else 0.0
-        result.append(t_copy)
-    return {"status": "success", "total": len(result), "data": result}
+    """问财热点：最近3个交易日概念板块热度排行前15 (hithink-industry-query 内化端口缓存)"""
+    try:
+        from scripts.iwencai_provider import load_ranking_cache
+        cache = load_ranking_cache()
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"读取问财热度排行缓存失败: {e}",
+            "data": None
+        }
+    if not cache or not cache.get("items"):
+        # 无缓存 = 动态数据未就绪：显式告知，禁止用静态内容顶替
+        return {
+            "status": "error",
+            "message": (
+                "问财热度排行尚未计算：请点击「🔄 刷新指标」实时计算最近3个交易日排行前15，"
+                "或等待交易日 10:00 自动计算。不提供静态替代数据。"
+            ),
+            "data": None
+        }
+    return {"status": "success", "total": len(cache["items"]), "data": cache}
 
 
 @app.post("/api/themes/refresh")
 async def refresh_themes_summary():
-    """触发风格题材时效指标重新计算与知识库刷新"""
+    """「刷新指标」：实时计算最近3个交易日概念板块热度排行前15 (问财开放平台真实数据)"""
     try:
-        from scripts.update_themes_intel import run_theme_intel_update
-        res = await asyncio.to_thread(run_theme_intel_update, True)
-        # 刷新完成后触发一次批量行情拉取
-        await asyncio.to_thread(fetch_batch_quotes)
+        from scripts.iwencai_provider import fetch_hot_ranking_top15
+        res = await asyncio.to_thread(fetch_hot_ranking_top15)
+        # 刷新完成后触发一次批量行情拉取(失败不影响排行结果)
+        try:
+            await asyncio.to_thread(fetch_batch_quotes)
+        except Exception as e:
+            logger.warning(f"刷新后批量行情补拉失败: {e}")
         return {
             "status": "success",
-            "message": "风格题材时效指标及标的池已完成智能刷新",
+            "message": (
+                f"已计算 {res['window']['label']} 热度排行前15 "
+                f"(问财原生 {res.get('heat_field', '板块热度')}, 全宇宙 {res.get('total_universe')} 只)"
+            ),
             "data": res
         }
     except Exception as e:
-        logger.error(f"刷新风格题材时效指标异常: {e}", exc_info=True)
+        logger.error(f"问财热度排行计算失败: {e}", exc_info=True)
         return {
             "status": "error",
-            "message": f"刷新失败: {str(e)}",
+            "message": f"刷新失败(未出数，不提供静态替代): {str(e)}",
+            "data": None
+        }
+
+
+@app.get("/api/themes/board_leaders")
+async def get_theme_board_leaders(code: str, refresh: bool = False):
+    """问财热点二级内容：板块头部代表公司(总市值前3) + 简单介绍(问财纳入概念原因) + 近7日走势线"""
+    code = (code or "").strip().upper()
+    if not re.fullmatch(r"\d{6}\.TI", code):
+        return {
+            "status": "error",
+            "message": f"板块代码格式非法: {code!r} (期望同花顺概念指数代码如 886050.TI)",
+            "data": None
+        }
+    try:
+        from scripts.iwencai_provider import load_ranking_cache
+        from scripts.theme_leaders_provider import fetch_board_leaders
+        ranking = load_ranking_cache()
+        board = next(
+            (it for it in (ranking or {}).get("items", []) if str(it.get("code", "")).upper() == code),
+            None
+        )
+        if not board:
+            # 板块名只从服务端排行缓存解析, 禁止客户端注入任意问财查询
+            return {
+                "status": "error",
+                "message": (
+                    f"板块 {code} 不在当前问财热度排行缓存中: "
+                    "请先点击「🔄 刷新指标」生成排行后再展开二级内容"
+                ),
+                "data": None
+            }
+        res = await asyncio.to_thread(fetch_board_leaders, code, board.get("name", ""), refresh)
+        return {"status": "success", "data": res}
+    except Exception as e:
+        logger.error(f"问财热点板块 {code} 头部公司计算失败: {e}", exc_info=True)
+        return {
+            "status": "error",
+            "message": f"头部代表公司数据获取失败(未出数，不提供静态替代): {str(e)}",
             "data": None
         }
 

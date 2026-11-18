@@ -20,7 +20,11 @@ const state = {
   ws: null,
   activeDetailCode: null,
   foldedGroups: new Set(),
-  themesSummary: [],
+  themesRanking: null,       // 问财热度排行数据 {window, generated_at, trace_id, items[], ...}
+  themesRankingError: null,  // 最近一次获取/刷新失败的真实原因(显式提示, 不静默)
+  boardLeadersCache: new Map(),  // 板块头部代表公司二级内容当日缓存 (key=板块code)
+  boardPopAnchor: null,      // 当前悬浮面板锚定的热度卡片
+  boardPopCode: null,        // 当前悬浮面板展示的板块code
   lastRenderFingerprint: '',
   previousPrices: new Map(),
   stockHistoryCache: new Map(),
@@ -88,6 +92,7 @@ const el = {
   themeInsightPromptBar: document.getElementById('theme-insight-prompt-bar'),
   themeInsightGrid: document.getElementById('theme-insight-grid'),
   btnToggleInsightExpand: document.getElementById('btn-toggle-insight-expand'),
+  boardLeadersPop: document.getElementById('board-leaders-pop'),
   alertsList: document.getElementById('alerts-list'),
   announcementsList: document.getElementById('announcements-list'),
   newsList: document.getElementById('news-list'),
@@ -194,6 +199,8 @@ async function initApp() {
 
   // 3-second high-frequency poll for ultra reliability
   state.pollInterval = setInterval(refreshData, 3000);
+  // 题材时效指标每 5 分钟同步一次 (交易日 10:00 自动重算后及时上屏)
+  setInterval(fetchThemesSummary, 5 * 60 * 1000);
 }
 
 // ==========================================
@@ -629,6 +636,7 @@ function toggleDrawerExpand() {
 function closeAllModals() {
   if (el.modalAdd) el.modalAdd.style.display = 'none';
   if (el.modalThreshold) el.modalThreshold.style.display = 'none';
+  closeBoardLeadersPop();
   closeDrawer();
 }
 
@@ -2220,17 +2228,20 @@ async function fetchThemesSummary() {
   try {
     const resp = await fetch('/api/themes/summary');
     const res = await resp.json();
-    if (res.status === 'success') {
-      state.themesSummary = res.data || [];
-      const countTag = document.getElementById('theme-count-tag');
-      if (countTag && state.themesSummary.length) {
-        countTag.textContent = `${state.themesSummary.length} 大核心主线`;
-      }
-      renderThemeInsight();
+    if (res.status === 'success' && res.data) {
+      state.themesRanking = res.data;
+      state.themesRankingError = null;
+    } else {
+      // 无动态数据: 显式告知, 绝不用静态内容顶替
+      state.themesRanking = null;
+      state.themesRankingError = res.message || '问财热度排行数据不可用';
     }
   } catch (err) {
-    console.warn('获取题材全景数据失败:', err);
+    console.warn('获取问财热度排行失败:', err);
+    state.themesRanking = null;
+    state.themesRankingError = `网络请求失败: ${err.message || err}`;
   }
+  renderThemeInsight();
 }
 
 window.refreshThemeInsight = async function() {
@@ -2239,20 +2250,29 @@ window.refreshThemeInsight = async function() {
   try {
     if (btn) {
       btn.disabled = true;
-      btn.textContent = '⏳ 正在计算指标...';
+      btn.textContent = '⏳ 正在计算最近3个交易日热度排行...';
     }
     const resp = await fetch('/api/themes/refresh', { method: 'POST' });
     const res = await resp.json();
-    if (res.status === 'success') {
-      showToast('🎉 风格题材时效指标与标的池已刷新完成', 'success');
-      await fetchThemesSummary();
-      await refreshData();
+    if (res.status === 'success' && res.data) {
+      state.themesRanking = res.data;
+      state.themesRankingError = null;
+      renderThemeInsight();
+      const win = (res.data.window && res.data.window.label) || '--';
+      showToast(`🎉 已计算 ${win} 热度排行前15 (问财真实数据)`, 'success');
+      await refreshData(true);
     } else {
-      showToast(`⚠️ 刷新提示: ${res.message || '未知错误'}`, 'warning');
+      // 不能实现动态 → 马上提示告知, 不用旧数据/静态内容冒充
+      const msg = res.message || '未知错误';
+      state.themesRankingError = `刷新失败: ${msg}`;
+      renderThemeInsight();
+      showToast(`⚠️ 热度排行刷新失败: ${msg}`, 'error');
     }
   } catch (err) {
-    console.error('刷新题材情报失败:', err);
-    showToast('❌ 刷新题材指标网络请求异常', 'error');
+    console.error('刷新问财热度排行失败:', err);
+    state.themesRankingError = `网络请求失败: ${err.message || err}`;
+    renderThemeInsight();
+    showToast('❌ 刷新网络请求异常, 热度排行未更新', 'error');
   } finally {
     if (btn) {
       btn.disabled = false;
@@ -2263,76 +2283,281 @@ window.refreshThemeInsight = async function() {
 
 function renderThemeInsight() {
   const grid = el.themeInsightGrid;
-  if (!grid || !state.themesSummary || !state.themesSummary.length) return;
+  const countTag = document.getElementById('theme-count-tag');
+  if (!grid) return;
 
-  grid.innerHTML = state.themesSummary.map(t => {
-    const avgPct = t.realtime_avg_pct || 0;
-    const isUp = avgPct > 0;
-    const isDown = avgPct < 0;
-    const avgClass = isUp ? 'is-up' : (isDown ? 'is-down' : 'is-flat');
-    const avgSign = isUp ? '+' : '';
+  // 动态失败: 立即显式提示, 拒绝静态顶替
+  if (!state.themesRanking || !state.themesRanking.items || !state.themesRanking.items.length) {
+    if (countTag) countTag.textContent = '⚠️ 数据不可用';
+    grid.innerHTML = `
+      <div class="theme-empty-note">
+        ⚠️ 问财热点动态数据不可用: ${state.themesRankingError || '尚未获取到热度排行'}<br>
+        <span class="theme-empty-hint">点击「🔄 刷新指标」实时计算最近3个交易日热度排行前15 (数据源: 同花顺问财开放平台)。不提供静态替代内容。</span>
+      </div>`;
+    return;
+  }
 
-    const leadersHtml = (t.top_stocks || []).map((s, idx) => {
-      const qPct = s.pct_change || 0;
-      const sUp = qPct > 0;
-      const sDown = qPct < 0;
-      const qClass = sUp ? 'is-up' : (sDown ? 'is-down' : 'is-flat');
-      const qSign = sUp ? '+' : '';
-      const priceText = s.price > 0 ? `${s.price.toFixed(2)}元 (${qSign}${qPct.toFixed(2)}%)` : '--';
-      const roleBadgeClass = idx === 0 ? 'role-l1' : 'role-l2';
-      const roleShort = idx === 0 ? '龙一' : '龙二';
+  const d = state.themesRanking;
+  const win = d.window || {};
+  const items = d.items.slice(0, 15);
+  if (countTag) countTag.textContent = `TOP ${items.length} 热度排行`;
 
-      return `
-        <div class="leader-item" onclick="locateStockCode('${s.code}')" title="点击定位 ${s.name} 行情详情">
-          <div class="leader-head">
-            <span class="leader-role ${roleBadgeClass}">${roleShort}</span>
-            <span class="leader-code-name"><strong>${s.name}</strong> <span class="leader-code">${s.code}</span></span>
-            <span class="leader-quote ${qClass}">${priceText}</span>
-          </div>
-          <p class="leader-desc" title="${s.desc}">${s.desc}</p>
-        </div>
-      `;
-    }).join('');
-
+  const cards = items.map(it => {
+    const pct = it.pct_today;
+    const hasPct = typeof pct === 'number';
+    const pctClass = hasPct ? (pct > 0 ? 'is-up' : (pct < 0 ? 'is-down' : 'is-flat')) : '';
+    const pctSign = hasPct && pct > 0 ? '+' : '';
+    const heatText = typeof it.heat === 'number' ? it.heat.toLocaleString('zh-CN', { maximumFractionDigits: 1 }) : '--';
+    const closeText = typeof it.close === 'number' ? it.close.toFixed(2) : '--';
     return `
-      <div class="theme-card" data-group="${t.group}">
-        <div class="theme-card-header">
-          <div class="theme-title-wrap">
-            <div class="theme-name-row">
-              <span class="theme-name">${t.name}</span>
-              <span class="theme-cat-tag">${t.category}</span>
-            </div>
-            <div class="theme-meta-row">
-              <span class="theme-hot-tag">问财热度 ${t.hot_level}</span>
-              <span class="theme-flow-tag">${t.fund_flow}</span>
-              ${t.week_perf ? `<span class="theme-flow-tag" title="5日区间真实表现">周表现: ${t.week_perf}</span>` : ''}
-              <span class="theme-rt-avg ${avgClass}">实时均幅: ${avgSign}${avgPct.toFixed(2)}%</span>
-            </div>
-          </div>
-          <button class="theme-jump-btn" onclick="locateThemeGroup('${t.group}')" title="在下方自选资产矩阵中定位该板块监控排">
-            定位监控排 ➔
-          </button>
+      <div class="heat-rank-card is-clickable" data-board-code="${escAttr(it.code)}" data-board-name="${escAttr(it.name)}" title="点击展开头部代表公司 · 简单介绍 · 近7日走势线">
+        <div class="heat-rank-head">
+          <span class="heat-rank-no">#${it.rank}</span>
+          <span class="heat-rank-name">${it.name}</span>
+          <span class="heat-rank-code">${it.code}</span>
         </div>
-        
-        <div class="theme-card-body">
-          <div class="theme-driver-box">
-            <span class="driver-label">💡 问财核心驱动:</span>
-            <p class="driver-text">${t.driver_info}</p>
-          </div>
-          
-          <div class="theme-leaders-box">
-            <div class="leaders-title-row">
-              <span class="leaders-title">🏆 题材领衔头部两家公司 (龙一 / 龙二):</span>
-            </div>
-            <div class="leaders-list">
-              ${leadersHtml}
-            </div>
-          </div>
+        <div class="heat-rank-metrics">
+          <span class="heat-rank-heat" title="来源: ${d.heat_field || '板块热度'} (问财原生字段, 窗口 ${win.label})">🔥 板块热度 ${heatText}</span>
+          <span class="heat-rank-pct ${pctClass}" title="问财返回字段: 涨跌幅 (当日)">${hasPct ? `${pctSign}${pct.toFixed(2)}%` : '--'}</span>
+          <span class="heat-rank-close" title="问财返回字段: 收盘价 (指数点位)">${closeText}</span>
         </div>
-      </div>
-    `;
+        <div class="heat-rank-foot">
+          <span class="heat-rank-open-hint">👥 头部代表公司 · 简介 · 近7日走势 ▸</span>
+        </div>
+      </div>`;
   }).join('');
+
+  grid.innerHTML = `
+    <div class="heat-window-bar">
+      📊 数据计算区间: <strong>${win.label || '--'}</strong>
+      <span class="heat-window-days">(${(win.trading_days || []).length} 个交易日: ${(win.trading_days || []).join(' / ')})</span>
+      · 生成于 ${d.generated_at || '--'}
+      · 全宇宙 ${d.total_universe || '--'} 只按热度降序取前 ${items.length}
+      <span class="heat-window-src" title="trace_id: ${d.trace_id || '--'} · query: ${d.query || '--'}">来源: ${d.source || '同花顺问财开放平台'}</span>
+    </div>
+    <div class="heat-rank-list">${cards}</div>`;
 }
+
+// ==========================================
+// 问财热点二级内容: 板块头部代表公司悬浮面板
+// (1~3家头部公司 · 问财纳入概念原因简介 · 近7日走势线)
+// ==========================================
+function escAttr(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+}
+
+function escHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function formatMarketCap(v) {
+  if (typeof v !== 'number' || !isFinite(v)) return '--';
+  if (v >= 1e12) return (v / 1e12).toFixed(2) + '万亿';
+  if (v >= 1e8) return (v / 1e8).toFixed(1) + '亿';
+  return v.toLocaleString('zh-CN');
+}
+
+function buildTrendSparkline(trend) {
+  const closes = (trend && trend.closes) || [];
+  if (closes.length < 2) return '<span class="board-trend-missing">走势有效点不足</span>';
+  const w = 176, h = 44, pad = 5;
+  const min = Math.min(...closes);
+  const max = Math.max(...closes);
+  const span = (max - min) || 1;
+  const pts = closes.map((c, i) => {
+    const x = pad + (i * (w - pad * 2)) / (closes.length - 1);
+    const y = h - pad - ((c - min) / span) * (h - pad * 2);
+    return [x, y];
+  });
+  const path = pts.map(p => `${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ');
+  const first = pts[0];
+  const last = pts[pts.length - 1];
+  const pct = typeof trend.pct_7d === 'number' ? trend.pct_7d : null;
+  const color = pct === null ? '#64748b' : (pct >= 0 ? '#dc2626' : '#16a34a');
+  return `
+    <svg class="board-trend-svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" role="img" aria-label="近7日走势线">
+      <polyline points="${path}" fill="none" stroke="${color}" stroke-width="1.6" stroke-linejoin="round" />
+      <circle cx="${first[0].toFixed(1)}" cy="${first[1].toFixed(1)}" r="2" fill="#94a3b8" />
+      <circle cx="${last[0].toFixed(1)}" cy="${last[1].toFixed(1)}" r="2.6" fill="${color}" />
+    </svg>`;
+}
+
+function positionBoardPop() {
+  const pop = el.boardLeadersPop;
+  const anchor = state.boardPopAnchor;
+  if (!pop || pop.style.display === 'none' || !anchor) return;
+  const r = anchor.getBoundingClientRect();
+  const pw = pop.offsetWidth || 560;
+  const ph = pop.offsetHeight || 300;
+  let top = r.bottom + 8;
+  if (top + ph > window.innerHeight - 8) {
+    top = Math.max(8, r.top - ph - 8);
+  }
+  let left = Math.min(r.left, window.innerWidth - pw - 8);
+  left = Math.max(8, left);
+  pop.style.top = `${Math.round(top)}px`;
+  pop.style.left = `${Math.round(left)}px`;
+}
+
+function closeBoardLeadersPop() {
+  const pop = el.boardLeadersPop;
+  if (pop) pop.style.display = 'none';
+  state.boardPopAnchor = null;
+  state.boardPopCode = null;
+}
+window.closeBoardLeadersPop = closeBoardLeadersPop;
+
+function renderBoardLeadersError(message) {
+  const pop = el.boardLeadersPop;
+  if (!pop) return;
+  const body = pop.querySelector('.board-pop-body');
+  if (!body) return;
+  body.innerHTML = `
+    <div class="board-pop-error">
+      ⚠️ 头部代表公司数据不可用: ${escHtml(message)}<br>
+      <span class="theme-empty-hint">不提供静态替代内容; 修复后再次点击卡片可重试。</span>
+    </div>`;
+  positionBoardPop();
+}
+
+function renderBoardLeaders(data) {
+  const pop = el.boardLeadersPop;
+  if (!pop) return;
+  const body = pop.querySelector('.board-pop-body');
+  if (!body || !data) return;
+  const leaders = data.leaders || [];
+  const rows = leaders.map(ld => {
+    const pct = ld.pct_today;
+    const hasPct = typeof pct === 'number';
+    const pctCls = hasPct ? (pct > 0 ? 'is-up' : (pct < 0 ? 'is-down' : '')) : '';
+    const pctSign = hasPct && pct > 0 ? '+' : '';
+    const tags = (ld.industry || []).map(t => `<span class="leader-tag">${escHtml(t)}</span>`).join('');
+    const intro = ld.intro
+      ? `<div class="leader-intro" title="${escAttr(ld.intro)}">📄 ${escHtml(ld.intro)}</div>`
+      : `<div class="leader-intro" style="color:#94a3b8;">📄 问财未返回该股「纳入概念原因」, 不做补写</div>`;
+    let trendHtml;
+    const t = ld.trend;
+    if (t && t.closes && t.closes.length >= 2) {
+      const pct7 = typeof t.pct_7d === 'number' ? t.pct_7d : null;
+      const tCls = pct7 === null ? '' : (pct7 >= 0 ? 'is-up' : 'is-down');
+      const tSign = pct7 !== null && pct7 > 0 ? '+' : '';
+      const range = `${t.dates[0]} ~ ${t.dates[t.dates.length - 1]}`;
+      const closesTip = (t.dates || []).map((d, i) => `${d}: ${(t.closes[i] ?? 0).toFixed(2)}`).join(' | ');
+      trendHtml = `
+        <div class="board-trend" title="${escAttr('近7个交易日收盘(前复权): ' + closesTip + ' · 来源: ' + (t.source || ''))}">
+          ${buildTrendSparkline(t)}
+          <div class="board-trend-meta">
+            <span class="board-trend-range">${escHtml(range)}</span>
+            <span class="board-trend-pct ${tCls}">7日区间 ${pct7 === null ? '--' : `${tSign}${pct7.toFixed(2)}%`}</span>
+          </div>
+        </div>`;
+    } else {
+      trendHtml = `<div class="board-trend-missing" title="${escAttr(ld.trend_error || '未取到走势数据')}">⚠️ 近7日走势不可用: ${escHtml(ld.trend_error || '未取到数据')}</div>`;
+    }
+    return `
+      <div class="leader-row">
+        <div class="leader-main">
+          <div class="leader-head">
+            <span class="leader-no">TOP${ld.rank}</span>
+            <span class="leader-name">${escHtml(ld.name)}</span>
+            <span class="leader-code">${escHtml(ld.code)}</span>
+            <span class="leader-price">${typeof ld.price === 'number' ? '¥' + ld.price.toFixed(2) : '--'}</span>
+            <span class="leader-pct ${pctCls}">${hasPct ? `${pctSign}${pct.toFixed(2)}%` : '--'}</span>
+            <span class="leader-mcap" title="问财原生总市值[YYYYMMDD]列, 原值不换算误差">总市值 ${formatMarketCap(ld.market_cap)}</span>
+          </div>
+          <div class="leader-tags">${tags}</div>
+          ${intro}
+        </div>
+        <div class="leader-side">${trendHtml}</div>
+      </div>`;
+  }).join('');
+
+  body.innerHTML = `
+    <div class="board-pop-note">
+      头部代表公司口径: ${escHtml(data.selection_rule || '')}
+      · 问句: <span style="font-family:var(--font-mono);">${escHtml(data.query || '')}</span>
+    </div>
+    ${rows}
+    <div class="board-pop-foot">
+      📌 来源标注: 成分股/市值/简介 = ${escHtml((data.sources && data.sources.leaders) || '')} (trace_id: ${escHtml((data.trace_id || '').slice(0, 16))}…)
+      · 简介字段 = ${escHtml((data.sources && data.sources.intro) || '')}
+      · 走势 = ${escHtml((data.sources && data.sources.trend) || '')}
+      · 生成于 ${escHtml(data.generated_at || '--')}
+      · 一切字段为真实接口原生返回, 无估算、无补值、无静态顶替
+    </div>`;
+  positionBoardPop();
+}
+
+function openBoardLeadersPop(card) {
+  const pop = el.boardLeadersPop;
+  if (!pop || !card) return;
+  const code = card.dataset.boardCode || '';
+  const name = card.dataset.boardName || '';
+  state.boardPopAnchor = card;
+  state.boardPopCode = code;
+  pop.style.display = 'block';
+  pop.innerHTML = `
+    <div class="board-pop-head">
+      <div class="board-pop-title">🔥 ${escHtml(name)}<span class="board-pop-code">${escHtml(code)}</span></div>
+      <button class="close-btn" onclick="closeBoardLeadersPop()">✕</button>
+    </div>
+    <div class="board-pop-body">
+      <div class="board-pop-loading">⏳ 正在向同花顺问财开放平台查询「${escHtml(name)}」成分股头部公司 (按总市值) 与近7日走势线...</div>
+    </div>`;
+  positionBoardPop();
+
+  const cached = state.boardLeadersCache.get(code);
+  if (cached) {
+    renderBoardLeaders(cached);
+    return;
+  }
+  fetch(`/api/themes/board_leaders?code=${encodeURIComponent(code)}`)
+    .then(r => r.json())
+    .then(res => {
+      if (state.boardPopCode !== code) return;  // 面板已切换或关闭, 丢弃过期响应
+      if (res && res.status === 'success' && res.data) {
+        state.boardLeadersCache.set(code, res.data);
+        renderBoardLeaders(res.data);
+      } else {
+        renderBoardLeadersError((res && res.message) || '未知错误');
+      }
+    })
+    .catch(err => {
+      if (state.boardPopCode !== code) return;
+      renderBoardLeadersError(`网络请求失败: ${err.message || err}`);
+    });
+}
+window.openBoardLeadersPop = openBoardLeadersPop;
+
+// 悬浮面板一次性事件绑定: 卡片委托 / 点击外部收起 / 滚动缩放跟随锚点
+(function initBoardLeadersPop() {
+  const grid = el.themeInsightGrid;
+  if (grid) {
+    grid.addEventListener('click', (e) => {
+      const card = e.target.closest('.heat-rank-card[data-board-code]');
+      if (!card) return;
+      const pop = el.boardLeadersPop;
+      const isOpen = pop && pop.style.display !== 'none';
+      if (isOpen && state.boardPopCode === card.dataset.boardCode) {
+        closeBoardLeadersPop();  // 再次点击同一卡片 = 收起
+      } else {
+        openBoardLeadersPop(card);
+      }
+      e.stopPropagation();
+    });
+  }
+  document.addEventListener('click', (e) => {
+    const pop = el.boardLeadersPop;
+    if (!pop || pop.style.display === 'none') return;
+    if (e.target.closest('#board-leaders-pop')) return;
+    if (e.target.closest('.heat-rank-card[data-board-code]')) return;
+    closeBoardLeadersPop();
+  });
+  window.addEventListener('resize', positionBoardPop);
+  window.addEventListener('scroll', positionBoardPop, true);
+})();
 
 function updateThemeInsightVisibility() {
   const sec = el.themeInsightSection;
@@ -2347,7 +2572,7 @@ function updateThemeInsightVisibility() {
     sec.style.display = 'flex';
     if (prompt) prompt.style.display = 'none';
     if (el.btnToggleInsightExpand) el.btnToggleInsightExpand.textContent = '收起洞察 ▴';
-    if (!state.themesSummary || !state.themesSummary.length) {
+    if (!state.themesRanking) {
       fetchThemesSummary();
     }
   } else if (state.mainFilter === 'ALL') {
@@ -2359,6 +2584,7 @@ function updateThemeInsightVisibility() {
   } else {
     sec.style.display = 'none';
     if (prompt) prompt.style.display = 'none';
+    closeBoardLeadersPop();
   }
 }
 
@@ -2375,13 +2601,14 @@ window.toggleThemeInsight = function(forceOpen) {
     sec.style.display = 'flex';
     if (prompt) prompt.style.display = 'none';
     if (btn) btn.textContent = '收起洞察 ▴';
-    if (!state.themesSummary || !state.themesSummary.length) {
+    if (!state.themesRanking) {
       fetchThemesSummary();
     }
   } else {
     sec.style.display = 'none';
     if (state.mainFilter === 'ALL' && prompt) prompt.style.display = 'block';
     if (btn) btn.textContent = '展开洞察 ▾';
+    closeBoardLeadersPop();
   }
 };
 

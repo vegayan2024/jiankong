@@ -338,9 +338,9 @@ def fetch_month_kline(tencent_sym: str) -> List[Dict[str, Any]]:
     return monthly_result
 
 
-def fetch_day_kline(tencent_sym: str) -> List[Dict[str, Any]]:
-    """腾讯：获取近期高密度日K时序 (最近640个交易日)。前复权 qfq。"""
-    url_day = f"http://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param={tencent_sym},day,,,640,qfq"
+def fetch_day_kline(tencent_sym: str, count: int = 640) -> List[Dict[str, Any]]:
+    """腾讯：获取近期高密度日K时序 (默认最近640个交易日, count 可指定条数)。前复权 qfq。"""
+    url_day = f"http://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param={tencent_sym},day,,,{int(count)},qfq"
     daily_result: List[Dict[str, Any]] = []
     try:
         resp = http_session.get(url_day, timeout=4.0)
