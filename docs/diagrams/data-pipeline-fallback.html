@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quant Radar — K-Line Multi-Source Fallback Pipeline</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:   #f8fafc;
+      --color-paper-2: #ffffff;
+      --color-ink:     #0f172a;
+      --color-muted:   #475569;
+      --color-soft:    #64748b;
+      --color-rule:    rgba(15, 23, 42, 0.08);
+      --color-rule-solid: #cbd5e1;
+      --color-accent:  #ea580c;
+      --color-link:    #2563eb;
+      --font-sans:     'Geist', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --font-serif:    'Instrument Serif', Georgia, serif;
+      --font-mono:     'Geist Mono', ui-monospace, SFMono-Regular, monospace;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--color-paper);
+      color: var(--color-ink);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2.5rem 1.5rem;
+    }
+
+    .frame { max-width: 1120px; width: 100%; }
+    .diagram-container {
+      width: 100%;
+      overflow-x: auto;
+      background: var(--color-paper-2);
+      border: 1px solid var(--color-rule-solid);
+      border-radius: 8px;
+      box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.05);
+      padding: 1.5rem;
+    }
+
+    .eyebrow {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--color-accent);
+      margin-bottom: 0.35rem;
+    }
+
+    h1 {
+      font-family: var(--font-serif);
+      font-size: clamp(1.6rem, 2.5vw + 0.8rem, 2.2rem);
+      font-weight: 400;
+      letter-spacing: -0.02em;
+      line-height: 1.2;
+      color: var(--color-ink);
+      margin-bottom: 0.5rem;
+    }
+
+    .subtitle {
+      font-size: 0.9rem;
+      color: var(--color-muted);
+      margin-bottom: 1.5rem;
+      max-width: 800px;
+      line-height: 1.5;
+    }
+
+    svg { width: 100%; min-width: 980px; display: block; }
+    @media print {
+      .diagram-container { overflow-x: visible; box-shadow: none; border: none; padding: 0; }
+      svg { min-width: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Data Pipeline · Resilient Multi-Source Fallback</p>
+    <h1>Historical K-Line Ingestion &amp; Failover Architecture</h1>
+    <p class="subtitle">Sequential 4-tier fallback chain with local SQLite WAL caching, rate-limited EastMoney token bucket gating, uniform QFQ normalization, and origin data provenance tracking.</p>
+
+    <div class="diagram-container">
+      <svg viewBox="0 0 980 540" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="pipeline-title pipeline-desc">
+        <title id="pipeline-title">K-Line Multi-Source Fallback Pipeline</title>
+        <desc id="pipeline-desc">Architectural flowchart detailing SQLite cache lookup, TuShare primary query, AkShare rate-limited failover, BaoStock backup, and Tencent emergency tick stitching.</desc>
+        <defs>
+          <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#475569"/></marker>
+          <marker id="arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#ea580c"/></marker>
+          <marker id="arrow-green" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#16a34a"/></marker>
+        </defs>
+
+        <rect width="980" height="540" fill="#ffffff" rx="6"/>
+
+        <!-- Client Request Block -->
+        <rect x="30" y="40" width="180" height="64" rx="4" fill="#f8fafc" stroke="#0f172a" stroke-width="1.2"/>
+        <text x="45" y="65" font-family="'Geist', sans-serif" font-size="13" font-weight="600" fill="#0f172a">Client Request</text>
+        <text x="45" y="82" font-family="'Geist Mono', monospace" font-size="10" fill="#475569">GET /api/stock/{code}</text>
+        <text x="45" y="94" font-family="'Geist Mono', monospace" font-size="9" fill="#64748b">/history?period=daily</text>
+
+        <!-- Arrow: Request -> Cache Check -->
+        <line x1="210" y1="72" x2="260" y2="72" stroke="#475569" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+        <!-- Tier 0: SQLite WAL Cache -->
+        <rect x="260" y="32" width="230" height="80" rx="4" fill="#ffffff" stroke="#ea580c" stroke-width="1.4"/>
+        <text x="275" y="55" font-family="'Geist', sans-serif" font-size="13" font-weight="600" fill="#ea580c">0. SQLite WAL Cache Gate</text>
+        <text x="275" y="73" font-family="'Geist Mono', monospace" font-size="10" fill="#0f172a">kline_cache.db (7-Day TTL)</text>
+        <text x="275" y="88" font-family="'Geist Mono', monospace" font-size="10" fill="#64748b">Check cache freshness &amp; count</text>
+        <text x="275" y="102" font-family="'Geist Mono', monospace" font-size="9" fill="#16a34a">HIT: Return in &lt;0.5ms</text>
+
+        <!-- Arrow Cache Hit -> Response -->
+        <path d="M 490 72 L 760 72 L 760 170" fill="none" stroke="#16a34a" stroke-width="1.2" stroke-dasharray="3 3" marker-end="url(#arrow-green)"/>
+        <text x="560" y="64" font-family="'Geist Mono', monospace" font-size="10" font-weight="600" fill="#16a34a">Cache Hit (Fast Return)</text>
+
+        <!-- Arrow Cache Miss -> Tier 1 -->
+        <line x1="375" y1="112" x2="375" y2="160" stroke="#ea580c" stroke-width="1.2" marker-end="url(#arrow-accent)"/>
+        <text x="385" y="140" font-family="'Geist Mono', monospace" font-size="10" fill="#ea580c">Cache Miss</text>
+
+        <!-- Container for Fallback Pipeline -->
+        <rect x="30" y="160" width="600" height="340" rx="6" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1"/>
+        <text x="45" y="184" font-family="'Geist Mono', monospace" font-size="11" font-weight="600" fill="#0f172a" letter-spacing="0.06em">SEQUENTIAL FALLBACK CHAIN (MULTI-SOURCE RESILIENCE)</text>
+
+        <!-- Step 1: TuShare Pro -->
+        <rect x="50" y="196" width="560" height="60" rx="4" fill="#ffffff" stroke="#94a3b8" stroke-width="1"/>
+        <text x="65" y="218" font-family="'Geist', sans-serif" font-size="12" font-weight="600" fill="#0f172a">Priority 1 · TuShare Pro Quant Channel</text>
+        <text x="65" y="235" font-family="'Geist Mono', monospace" font-size="10" fill="#475569">Token from .env · daily() with adj='qfq' · 800+ bars standard window</text>
+        <text x="65" y="248" font-family="'Geist Mono', monospace" font-size="9" fill="#64748b">Primary choice for A-shares | Exceptions: Timeout, Quota Exhausted, Network Drop</text>
+
+        <!-- Arrow 1 -> 2 -->
+        <line x1="330" y1="256" x2="330" y2="276" stroke="#475569" stroke-width="1" marker-end="url(#arrow)"/>
+        <text x="340" y="270" font-family="'Geist Mono', monospace" font-size="9" fill="#ea580c">Failover</text>
+
+        <!-- Step 2: AkShare / EastMoney -->
+        <rect x="50" y="276" width="560" height="60" rx="4" fill="#ffffff" stroke="#94a3b8" stroke-width="1"/>
+        <text x="65" y="298" font-family="'Geist', sans-serif" font-size="12" font-weight="600" fill="#0f172a">Priority 2 · AkShare / EastMoney API (Gated)</text>
+        <text x="65" y="315" font-family="'Geist Mono', monospace" font-size="10" fill="#475569">Protected by _em_lock + serialized pacing + random jitter sleep (&lt;0.01ms lock hold)</text>
+        <text x="65" y="328" font-family="'Geist Mono', monospace" font-size="9" fill="#64748b">PE/PB Corridor &amp; fallback K-line | Exceptions: 15s wait timeout, IP block</text>
+
+        <!-- Arrow 2 -> 3 -->
+        <line x1="330" y1="336" x2="330" y2="356" stroke="#475569" stroke-width="1" marker-end="url(#arrow)"/>
+        <text x="340" y="350" font-family="'Geist Mono', monospace" font-size="9" fill="#ea580c">Failover</text>
+
+        <!-- Step 3: BaoStock -->
+        <rect x="50" y="356" width="560" height="60" rx="4" fill="#ffffff" stroke="#94a3b8" stroke-width="1"/>
+        <text x="65" y="378" font-family="'Geist', sans-serif" font-size="12" font-weight="600" fill="#0f172a">Priority 3 · BaoStock Lightweight Engine</text>
+        <text x="65" y="395" font-family="'Geist Mono', monospace" font-size="10" fill="#475569">Free open access · A-share trading calendar ground truth · adjustflag='2' (QFQ)</text>
+        <text x="65" y="408" font-family="'Geist Mono', monospace" font-size="9" fill="#64748b">Zero auth requirement | Limitation: Does not support HK stocks &amp; real-time ticks</text>
+
+        <!-- Arrow 3 -> 4 -->
+        <line x1="330" y1="416" x2="330" y2="436" stroke="#475569" stroke-width="1" marker-end="url(#arrow)"/>
+        <text x="340" y="430" font-family="'Geist Mono', monospace" font-size="9" fill="#ea580c">Failover</text>
+
+        <!-- Step 4: Tencent Emergency -->
+        <rect x="50" y="436" width="560" height="54" rx="4" fill="#ffffff" stroke="#ea580c" stroke-width="1"/>
+        <text x="65" y="456" font-family="'Geist', sans-serif" font-size="12" font-weight="600" fill="#ea580c">Priority 4 · Tencent Market Gateway (Emergency Anchor)</text>
+        <text x="65" y="473" font-family="'Geist Mono', monospace" font-size="10" fill="#475569">qt.gtimg.cn · Real-time price stitching &amp; synthetic today bar generation</text>
+        <text x="65" y="484" font-family="'Geist Mono', monospace" font-size="9" fill="#64748b">Universal coverage: A-shares, Hong Kong Stocks, Global Indices, ETFs</text>
+
+        <!-- Right Side: Standardization, Cache Write & Response Output -->
+        <rect x="670" y="170" width="280" height="330" rx="6" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1"/>
+        <text x="686" y="194" font-family="'Geist Mono', monospace" font-size="11" font-weight="600" fill="#0f172a" letter-spacing="0.06em">NORMALIZATION &amp; EGRESS</text>
+
+        <!-- Egress 1: QFQ Alignment -->
+        <rect x="686" y="206" width="248" height="64" rx="4" fill="#ffffff" stroke="#94a3b8" stroke-width="1"/>
+        <text x="698" y="226" font-family="'Geist', sans-serif" font-size="12" font-weight="600" fill="#0f172a">1. QFQ Normalization</text>
+        <text x="698" y="243" font-family="'Geist Mono', monospace" font-size="10" fill="#475569">Uniform field mapping</text>
+        <text x="698" y="257" font-family="'Geist Mono', monospace" font-size="9" fill="#64748b">date, open, high, low, close, vol</text>
+
+        <!-- Egress 2: Provenance Tagging -->
+        <rect x="686" y="278" width="248" height="64" rx="4" fill="#ffffff" stroke="#94a3b8" stroke-width="1"/>
+        <text x="698" y="298" font-family="'Geist', sans-serif" font-size="12" font-weight="600" fill="#0f172a">2. Provenance Tagging</text>
+        <text x="698" y="315" font-family="'Geist Mono', monospace" font-size="10" fill="#475569">Attach _source metadata</text>
+        <text x="698" y="329" font-family="'Geist Mono', monospace" font-size="9" fill="#64748b">ts | ak | baostock | tx</text>
+
+        <!-- Egress 3: Write Cache -->
+        <rect x="686" y="350" width="248" height="64" rx="4" fill="#ffffff" stroke="#ea580c" stroke-width="1"/>
+        <text x="698" y="370" font-family="'Geist', sans-serif" font-size="12" font-weight="600" fill="#ea580c">3. Async Cache Write</text>
+        <text x="698" y="387" font-family="'Geist Mono', monospace" font-size="10" fill="#475569">Upsert SQLite WAL</text>
+        <text x="698" y="401" font-family="'Geist Mono', monospace" font-size="9" fill="#64748b">Accelerates next 7 days access</text>
+
+        <!-- Egress 4: Final JSON Payload -->
+        <rect x="686" y="422" width="248" height="64" rx="4" fill="#ffffff" stroke="#16a34a" stroke-width="1.2"/>
+        <text x="698" y="442" font-family="'Geist', sans-serif" font-size="12" font-weight="600" fill="#16a34a">4. Final HTTP Response</text>
+        <text x="698" y="459" font-family="'Geist Mono', monospace" font-size="10" fill="#475569">Status 200 JSON Array</text>
+        <text x="698" y="473" font-family="'Geist Mono', monospace" font-size="9" fill="#16a34a">ECharts 5 renders K-line chart</text>
+
+        <!-- Feed arrow from pipeline to egress -->
+        <line x1="610" y1="350" x2="686" y2="350" stroke="#475569" stroke-width="1.2" marker-end="url(#arrow)"/>
+      </svg>
+    </div>
+  </div>
+</body>
+</html>

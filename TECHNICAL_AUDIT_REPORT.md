@@ -21,6 +21,10 @@
 ### 1.2 架构拓扑
 系统采用前后端解耦的现代异步事件驱动架构，后端基于 Python FastAPI 构建，前端依托原生高响应 Vanilla JS 与 ECharts 5 渲染图表：
 
+![Quant Radar System Topology](docs/diagrams/system-architecture.svg)
+
+> 💡 **出版级高保真架构拓扑图**：本图基于 `diagram-design` 规范（Geist / 1px Hairline / 单色强调）制作。可直接在浏览器中打开交互式单文件 [docs/diagrams/system-architecture.html](docs/diagrams/system-architecture.html) 查看高清细节。
+
 ```mermaid
 flowchart TB
     subgraph Client [前端现代化交互终端 - Vanilla JS / ECharts 5]
@@ -87,6 +91,11 @@ flowchart TB
 为严格遵循金融数据取数纪律，杜绝跨能力调用、盲目探测与静默处置，系统确立了清晰的入口边界与自动降级链：
 
 ### 2.1 数据能力路由表
+
+![K-Line Multi-Source Fallback Pipeline](docs/diagrams/data-pipeline-fallback.svg)
+
+> 💡 **多源降级与令牌桶限流管道**：已通过 `diagram-design` 规范梳理为标准数据流图。可直接在浏览器中打开交互式单文件 [docs/diagrams/data-pipeline-fallback.html](docs/diagrams/data-pipeline-fallback.html) 查看高清细节。
+
 
 | 业务需求 | 第一顺位入口 | 次顺位降级入口 | 末端兜底入口 | 采集频率与技术约束 |
 | :--- | :--- | :--- | :--- | :--- |
@@ -260,6 +269,10 @@ flowchart TB
 ---
 
 ## 六、 预警引擎四级门禁与防噪规格 (Alert Engine Gating)
+
+![Four-Tier Alert Engine and Gating State Machine](docs/diagrams/alert-engine-gating.svg)
+
+> 💡 **四级门禁预警状态机**：基于 `diagram-design` 规范梳理为状态流转图。可直接在浏览器中打开交互式单文件 [docs/diagrams/alert-engine-gating.html](docs/diagrams/alert-engine-gating.html) 查看高清细节。
 
 预警引擎 [alert_engine.py](file:///c:/ai/antigravity/jiankong/scripts/alert_engine.py) 承载盘中秒级异动检测，执行严密的四级门禁拦截：
 

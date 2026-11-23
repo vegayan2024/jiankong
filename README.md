@@ -68,7 +68,14 @@
 
 ---
 
-## 🏗️ 系统架构
+## 🏗️ 系统架构与数据链路
+
+![Quant Radar System Topology](docs/diagrams/system-architecture.svg)
+
+> 💡 **出版级高保真架构设计**：系统架构、多源降级流水线与状态机均采用 `diagram-design` 规范（Geist / 1px Hairline / 单色强调）制作。可直接在浏览器中打开交互式单文件：
+> - 🏛️ [系统整体架构拓扑 (System Topology)](docs/diagrams/system-architecture.html)
+> - 📈 [历史行情多源降级与令牌桶限流管道 (Fallback Pipeline)](docs/diagrams/data-pipeline-fallback.html)
+> - 🚨 [四级门禁预警状态机 (Alert Engine Gating)](docs/diagrams/alert-engine-gating.html)
 
 ```
 jiankong/

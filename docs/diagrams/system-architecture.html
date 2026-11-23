@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quant Radar (Jiankong) — System Architecture</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:   #f8fafc;
+      --color-paper-2: #ffffff;
+      --color-ink:     #0f172a;
+      --color-muted:   #475569;
+      --color-soft:    #64748b;
+      --color-rule:    rgba(15, 23, 42, 0.08);
+      --color-rule-solid: #cbd5e1;
+      --color-accent:  #ea580c;
+      --color-accent-tint: rgba(234, 88, 12, 0.06);
+      --color-link:    #2563eb;
+      --font-sans:     'Geist', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --font-serif:    'Instrument Serif', Georgia, serif;
+      --font-mono:     'Geist Mono', ui-monospace, SFMono-Regular, monospace;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--color-paper);
+      color: var(--color-ink);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2.5rem 1.5rem;
+    }
+
+    .frame { max-width: 1160px; width: 100%; }
+    .diagram-container {
+      width: 100%;
+      overflow-x: auto;
+      background: var(--color-paper-2);
+      border: 1px solid var(--color-rule-solid);
+      border-radius: 8px;
+      box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.05);
+      padding: 1.5rem;
+    }
+
+    .eyebrow {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--color-accent);
+      margin-bottom: 0.35rem;
+    }
+
+    h1 {
+      font-family: var(--font-serif);
+      font-size: clamp(1.6rem, 2.5vw + 0.8rem, 2.2rem);
+      font-weight: 400;
+      letter-spacing: -0.02em;
+      line-height: 1.2;
+      color: var(--color-ink);
+      margin-bottom: 0.5rem;
+    }
+
+    .subtitle {
+      font-size: 0.9rem;
+      color: var(--color-muted);
+      margin-bottom: 1.5rem;
+      max-width: 800px;
+      line-height: 1.5;
+    }
+
+    svg { width: 100%; min-width: 1040px; display: block; }
+    @media print {
+      .diagram-container { overflow-x: visible; box-shadow: none; border: none; padding: 0; }
+      svg { min-width: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Architecture Specification · Jiankong v2.2</p>
+    <h1>Quant Radar (Jiankong) — System Topology</h1>
+    <p class="subtitle">Decoupled reactive architecture: Vanilla JS &amp; ECharts 5 client terminal, FastAPI high-throughput async gateway, in-memory quantitative domain engines, SQLite WAL persistence, and multi-source market fallback networks.</p>
+
+    <div class="diagram-container">
+      <svg viewBox="0 0 1040 640" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="sys-arch-title sys-arch-desc">
+        <title id="sys-arch-title">Quant Radar System Topology</title>
+        <desc id="sys-arch-desc">Layered architectural diagram detailing client presentation, FastAPI server engines, local persistence, and external financial gateway fallback chains.</desc>
+        <defs>
+          <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#475569"/></marker>
+          <marker id="arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#ea580c"/></marker>
+          <marker id="arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#2563eb"/></marker>
+        </defs>
+
+        <!-- Background -->
+        <rect width="1040" height="640" fill="#ffffff" rx="6"/>
+
+        <!-- ================= TIER 1: FRONTEND PRESENTATION ================= -->
+        <rect x="20" y="20" width="1000" height="110" rx="6" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1"/>
+        <text x="36" y="42" font-family="'Geist Mono', monospace" font-size="11" font-weight="600" fill="#ea580c" letter-spacing="0.08em">LAYER 1 · REACTIVE CLIENT TERMINAL (VANILLA JS + ECHARTS 5)</text>
+
+        <!-- UI Node 1: Watchlist & Swimlanes -->
+        <rect x="36" y="54" width="225" height="62" rx="4" fill="#ffffff" stroke="#94a3b8" stroke-width="1"/>
+        <text x="48" y="76" font-family="'Geist', sans-serif" font-size="13" font-weight="600" fill="#0f172a">Group Swimlanes Matrix</text>
+        <text x="48" y="93" font-family="'Geist Mono', monospace" font-size="10" fill="#64748b">186+ Symbols · 11 High-Beta</text>
+        <text x="48" y="106" font-family="'Geist Mono', monospace" font-size="10" fill="#64748b">Swimlane / Grid / Table 60FPS</text>
+
+        <!-- UI Node 2: Drawer & Valuation -->
+        <rect x="277" y="54" width="225" height="62" rx="4" fill="#ffffff" stroke="#94a3b8" stroke-width="1"/>
+        <text x="289" y="76" font-family="'Geist', sans-serif" font-size="13" font-weight="600" fill="#0f172a">Deep Panoramic Drawer</text>
+        <text x="289" y="93" font-family="'Geist Mono', monospace" font-size="10" fill="#64748b">Multi-Axis K-Line · PE/PB Bands</text>
+        <text x="289" y="106" font-family="'Geist Mono', monospace" font-size="10" fill="#64748b">ECharts 5 Dual Scale + QFQ</text>
+
+        <!-- UI Node 3: AIHOT Radar -->
+        <rect x="518" y="54" width="225" height="62" rx="4" fill="#ffffff" stroke="#94a3b8" stroke-width="1"/>
+        <text x="530" y="76" font-family="'Geist', sans-serif" font-size="13" font-weight="600" fill="#0f172a">Intelligence Radar &amp; AIHOT</text>
+        <text x="530" y="93" font-family="'Geist Mono', monospace" font-size="10" fill="#64748b">25+ Official WeChat Feeds</text>
+        <text x="530" y="106" font-family="'Geist Mono', monospace" font-size="10" fill="#64748b">CNINFO Statutory PDF Reader</text>
+
+        <!-- UI Node 4: WS Client -->
+        <rect x="759" y="54" width="245" height="62" rx="4" fill="#ffffff" stroke="#ea580c" stroke-width="1.2"/>
+        <text x="771" y="76" font-family="'Geist', sans-serif" font-size="13" font-weight="600" fill="#ea580c">WebSocket Live Client</text>
+        <text x="771" y="93" font-family="'Geist Mono', monospace" font-size="10" fill="#64748b">ws://127.0.0.1:8765/ws/stocks</text>
+        <text x="771" y="106" font-family="'Geist Mono', monospace" font-size="10" fill="#64748b">Binary / JSON Delta Broadcast</text>
+
+        <!-- Arrows: Layer 1 <-> Layer 2 -->
+        <!-- HTTP Arrow (Up/Down) -->
+        <line x1="280" y1="130" x2="280" y2="180" stroke="#475569" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <text x="290" y="158" font-family="'Geist Mono', monospace" font-size="10" fill="#475569">HTTP GET / POST</text>
+
+        <!-- WS Arrow (Bidirectional) -->
+        <line x1="880" y1="180" x2="880" y2="130" stroke="#ea580c" stroke-width="1.4" marker-end="url(#arrow-accent)"/>
+        <text x="720" y="158" font-family="'Geist Mono', monospace" font-size="10" font-weight="600" fill="#ea580c">Tick Push (Sub-100ms)</text>
+
+        <!-- ================= TIER 2: FASTAPI ASYNC ENGINE ================= -->
+        <rect x="20" y="180" width="1000" height="230" rx="6" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1"/>
+        <text x="36" y="202" font-family="'Geist Mono', monospace" font-size="11" font-weight="600" fill="#0f172a" letter-spacing="0.08em">LAYER 2 · FASTAPI ASYNC BACKEND SERVICE (PORT 8765)</text>
+
+        <!-- Server Gateways Block -->
+        <rect x="36" y="214" width="455" height="80" rx="4" fill="#ffffff" stroke="#94a3b8" stroke-width="1"/>
+        <text x="50" y="235" font-family="'Geist', sans-serif" font-size="12" font-weight="600" fill="#0f172a">API Routing &amp; Event Gateways</text>
+        <text x="50" y="252" font-family="'Geist Mono', monospace" font-size="10" fill="#475569">• /api/overview (Aggregated Snapshot Cache)</text>
+        <text x="50" y="267" font-family="'Geist Mono', monospace" font-size="10" fill="#475569">• /api/stock/{code}/history (Resilient K-Line Gateway)</text>
+        <text x="50" y="282" font-family="'Geist Mono', monospace" font-size="10" fill="#475569">• /api/watchlist/* (CRUD &amp; Group Sorting Engine)</text>
+
+        <!-- WS Dispatcher Block -->
+        <rect x="507" y="214" width="497" height="80" rx="4" fill="#ffffff" stroke="#ea580c" stroke-width="1.2"/>
+        <text x="521" y="235" font-family="'Geist', sans-serif" font-size="12" font-weight="600" fill="#ea580c">Async WebSocket Broadcaster &amp; Batch Coalescer</text>
+        <text x="521" y="252" font-family="'Geist Mono', monospace" font-size="10" fill="#475569">• BroadcastManager with Lock-free Client Registry</text>
+        <text x="521" y="267" font-family="'Geist Mono', monospace" font-size="10" fill="#475569">• 300ms Dynamic Batch Window &amp; Obsolete Tick Merging</text>
+        <text x="521" y="282" font-family="'Geist Mono', monospace" font-size="10" fill="#475569">• Auto Connection Health Checking &amp; Zombie Eviction</text>
+
+        <!-- Domain Quant Sub-Container -->
+        <rect x="36" y="306" width="968" height="92" rx="4" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1"/>
+        <text x="50" y="324" font-family="'Geist Mono', monospace" font-size="10" font-weight="600" fill="#475569">CORE DOMAIN &amp; QUANT ENGINES</text>
+
+        <!-- Engine 1: Session Clock -->
+        <rect x="50" y="332" width="220" height="56" rx="3" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+        <text x="60" y="350" font-family="'Geist', sans-serif" font-size="11" font-weight="600" fill="#0f172a">A/H Dual Market Clock</text>
+        <text x="60" y="365" font-family="'Geist Mono', monospace" font-size="9" fill="#64748b">Call Auction · Half-Day Rules</text>
+        <text x="60" y="378" font-family="'Geist Mono', monospace" font-size="9" fill="#64748b">BaoStock + HKEX Calendar</text>
+
+        <!-- Engine 2: Macro Compass -->
+        <rect x="285" y="332" width="220" height="56" rx="3" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+        <text x="295" y="350" font-family="'Geist', sans-serif" font-size="11" font-weight="600" fill="#0f172a">Macro Asset Compass</text>
+        <text x="295" y="365" font-family="'Geist Mono', monospace" font-size="9" fill="#64748b">Large vs Small Cap Style</text>
+        <text x="295" y="378" font-family="'Geist Mono', monospace" font-size="9" fill="#64748b">CSI 300 vs CSI 2000 Ratio</text>
+
+        <!-- Engine 3: Alert Engine -->
+        <rect x="520" y="332" width="220" height="56" rx="3" fill="#ffffff" stroke="#ea580c" stroke-width="1"/>
+        <text x="530" y="350" font-family="'Geist', sans-serif" font-size="11" font-weight="600" fill="#ea580c">4-Tier Gated Alert Engine</text>
+        <text x="530" y="365" font-family="'Geist Mono', monospace" font-size="9" fill="#64748b">AND/OR Boolean Grouping</text>
+        <text x="530" y="378" font-family="'Geist Mono', monospace" font-size="9" fill="#64748b">30m Cooldown · 5/Day Cap</text>
+
+        <!-- Engine 4: AIHOT Radar -->
+        <rect x="755" y="332" width="235" height="56" rx="3" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+        <text x="765" y="350" font-family="'Geist', sans-serif" font-size="11" font-weight="600" fill="#0f172a">AIHOT Industry Radar</text>
+        <text x="765" y="365" font-family="'Geist Mono', monospace" font-size="9" fill="#64748b">Chemical, Mining, Explosives</text>
+        <text x="765" y="378" font-family="'Geist Mono', monospace" font-size="9" fill="#64748b">Entity Mapping &amp; Daily Brief</text>
+
+        <!-- Arrows: Layer 2 -> Layer 3 & Layer 4 -->
+        <line x1="260" y1="410" x2="260" y2="450" stroke="#475569" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <line x1="720" y1="450" x2="720" y2="410" stroke="#2563eb" stroke-width="1.2" marker-end="url(#arrow-link)"/>
+        <text x="730" y="434" font-family="'Geist Mono', monospace" font-size="10" fill="#2563eb">Ingestion &amp; Fallback Chain</text>
+
+        <!-- ================= TIER 3: PERSISTENCE (BOTTOM LEFT) ================= -->
+        <rect x="20" y="450" width="480" height="170" rx="6" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1"/>
+        <text x="36" y="472" font-family="'Geist Mono', monospace" font-size="11" font-weight="600" fill="#0f172a" letter-spacing="0.08em">LAYER 3 · PERSISTENCE &amp; WAL CACHE</text>
+
+        <!-- DB Node 1: SQLite WAL -->
+        <rect x="36" y="484" width="205" height="60" rx="4" fill="#ffffff" stroke="#0f172a" stroke-width="1.2"/>
+        <text x="48" y="504" font-family="'Geist', sans-serif" font-size="12" font-weight="600" fill="#0f172a">SQLite WAL Engine</text>
+        <text x="48" y="521" font-family="'Geist Mono', monospace" font-size="10" fill="#475569">kline_cache.db</text>
+        <text x="48" y="534" font-family="'Geist Mono', monospace" font-size="9" fill="#64748b">7-Day Local Cache · Provenance</text>
+
+        <!-- DB Node 2: Watchlist JSON -->
+        <rect x="256" y="484" width="228" height="60" rx="4" fill="#ffffff" stroke="#94a3b8" stroke-width="1"/>
+        <text x="268" y="504" font-family="'Geist', sans-serif" font-size="12" font-weight="600" fill="#0f172a">Watchlist Master</text>
+        <text x="268" y="521" font-family="'Geist Mono', monospace" font-size="10" fill="#475569">watchlist.json</text>
+        <text x="268" y="534" font-family="'Geist Mono', monospace" font-size="9" fill="#64748b">186+ Core Tickers &amp; Group Defs</text>
+
+        <!-- DB Node 3: Alert State -->
+        <rect x="36" y="552" width="205" height="54" rx="4" fill="#ffffff" stroke="#94a3b8" stroke-width="1"/>
+        <text x="48" y="570" font-family="'Geist', sans-serif" font-size="11" font-weight="600" fill="#0f172a">Alert State Machine</text>
+        <text x="48" y="585" font-family="'Geist Mono', monospace" font-size="10" fill="#475569">alert_state.json</text>
+        <text x="48" y="597" font-family="'Geist Mono', monospace" font-size="9" fill="#64748b">Trigger Timestamps &amp; Daily Caps</text>
+
+        <!-- DB Node 4: Intelligence Cache -->
+        <rect x="256" y="552" width="228" height="54" rx="4" fill="#ffffff" stroke="#94a3b8" stroke-width="1"/>
+        <text x="268" y="570" font-family="'Geist', sans-serif" font-size="11" font-weight="600" fill="#0f172a">Intelligence Cache</text>
+        <text x="268" y="585" font-family="'Geist Mono', monospace" font-size="10" fill="#475569">themes_knowledge_base.json</text>
+        <text x="268" y="597" font-family="'Geist Mono', monospace" font-size="9" fill="#64748b">WeChat &amp; Wencai Thematic DB</text>
+
+        <!-- ================= TIER 4: EXTERNAL GATEWAYS (BOTTOM RIGHT) ================= -->
+        <rect x="520" y="450" width="500" height="170" rx="6" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1"/>
+        <text x="536" y="472" font-family="'Geist Mono', monospace" font-size="11" font-weight="600" fill="#2563eb" letter-spacing="0.08em">LAYER 4 · FINANCIAL INGESTION &amp; FALLBACK NETWORK</text>
+
+        <!-- Source 1: Tencent QT -->
+        <rect x="536" y="484" width="220" height="60" rx="4" fill="#ffffff" stroke="#2563eb" stroke-width="1"/>
+        <text x="548" y="504" font-family="'Geist', sans-serif" font-size="12" font-weight="600" fill="#2563eb">Tencent High-Freq Market</text>
+        <text x="548" y="521" font-family="'Geist Mono', monospace" font-size="10" fill="#475569">qt.gtimg.cn (65-Chunk Slice)</text>
+        <text x="548" y="534" font-family="'Geist Mono', monospace" font-size="9" fill="#64748b">Live Ticks · Market Slices</text>
+
+        <!-- Source 2: TuShare Pro -->
+        <rect x="770" y="484" width="235" height="60" rx="4" fill="#ffffff" stroke="#94a3b8" stroke-width="1"/>
+        <text x="782" y="504" font-family="'Geist', sans-serif" font-size="12" font-weight="600" fill="#0f172a">TuShare Pro Gateway</text>
+        <text x="782" y="521" font-family="'Geist Mono', monospace" font-size="10" fill="#475569">Token Gated (.env Protected)</text>
+        <text x="782" y="534" font-family="'Geist Mono', monospace" font-size="9" fill="#64748b">Daily QFQ K-Lines &amp; Factor Data</text>
+
+        <!-- Source 3: AkShare & EastMoney -->
+        <rect x="536" y="552" width="220" height="54" rx="4" fill="#ffffff" stroke="#94a3b8" stroke-width="1"/>
+        <text x="548" y="570" font-family="'Geist', sans-serif" font-size="11" font-weight="600" fill="#0f172a">EastMoney via AkShare</text>
+        <text x="548" y="585" font-family="'Geist Mono', monospace" font-size="10" fill="#475569">Token Bucket + Jitter Guard</text>
+        <text x="548" y="597" font-family="'Geist Mono', monospace" font-size="9" fill="#64748b">PE / PB Historical Corridor</text>
+
+        <!-- Source 4: Statutory & Feeds -->
+        <rect x="770" y="552" width="235" height="54" rx="4" fill="#ffffff" stroke="#94a3b8" stroke-width="1"/>
+        <text x="782" y="570" font-family="'Geist', sans-serif" font-size="11" font-weight="600" fill="#0f172a">Statutory Disclosures &amp; Feeds</text>
+        <text x="782" y="585" font-family="'Geist Mono', monospace" font-size="10" fill="#475569">CNINFO PDF + Sina 7x24</text>
+        <text x="782" y="597" font-family="'Geist Mono', monospace" font-size="9" fill="#64748b">Official Releases &amp; Telegrams</text>
+      </svg>
+    </div>
+  </div>
+</body>
+</html>
